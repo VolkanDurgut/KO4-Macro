@@ -7,40 +7,23 @@ import keyboard
 import pydirectinput
 import json
 import os
+import sys
 import requests
 import webbrowser
 import ctypes
 import pyautogui
 
-# --- PROJE AYARLARI (v6.1 AUTO-ASSET) ---
-VERSION = "6.2"
+# --- PROJE AYARLARI (v7.0 AUTO-UPDATER ENGINE) ---
+VERSION = "7.0"
 GITHUB_USER = "VolkanDurgut"
 GITHUB_REPO = "KO4-Macro"
-# Dosyaların ham (raw) adresleri
-VERSION_FILE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/version.txt"
+REPO_API_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/releases/latest"
 SWORD_IMAGE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/sword.png"
-GITHUB_REPO_URL = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}"
 
 CONFIG_FILE = "config.json"
 IMAGE_NAME = "sword.png"
 
 pydirectinput.PAUSE = 0.001
-
-# --- OTOMATİK DOSYA İNDİRİCİ (YENİ) ---
-def check_and_download_assets():
-    """Eğer sword.png eksikse GitHub'dan indirir."""
-    if not os.path.exists(IMAGE_NAME):
-        try:
-            print("Gerekli dosya (sword.png) eksik, indiriliyor...")
-            response = requests.get(SWORD_IMAGE_URL)
-            if response.status_code == 200:
-                with open(IMAGE_NAME, 'wb') as f:
-                    f.write(response.content)
-                print("İndirme başarılı!")
-            else:
-                print("Dosya sunucuda bulunamadı.")
-        except Exception as e:
-            print(f"İndirme hatası: {e}")
 
 # --- GHOST MODE ---
 def block_input(block=True):
@@ -89,10 +72,11 @@ def perform_shield_macro(x, y, delay):
 # --- KILIÇ TARAMA FONKSİYONU ---
 def perform_sword_scan_macro(region, delay):
     try:
-        # Önce dosyayı kontrol et, yoksa indir
-        check_and_download_assets()
+        # Varlık kontrolü
+        if not os.path.exists(IMAGE_NAME):
+            check_and_download_assets()
 
-        # Tarama yap
+        # Tarama
         found_pos = pyautogui.locateOnScreen(IMAGE_NAME, region=region, confidence=0.8, grayscale=True)
         
         if found_pos:
@@ -112,7 +96,6 @@ def perform_sword_scan_macro(region, delay):
             pydirectinput.moveTo(int(target_x), int(target_y))
             time.sleep(0.02)
             
-            # Çift Tık
             pydirectinput.mouseDown(button='left')
             time.sleep(0.04)
             pydirectinput.mouseUp(button='left')
@@ -135,8 +118,93 @@ def perform_sword_scan_macro(region, delay):
     finally:
         block_input(False)
 
+# --- ASSET YÖNETİCİSİ ---
+def check_and_download_assets():
+    if not os.path.exists(IMAGE_NAME):
+        try:
+            r = requests.get(SWORD_IMAGE_URL)
+            if r.status_code == 200:
+                with open(IMAGE_NAME, 'wb') as f:
+                    f.write(r.content)
+        except: pass
+
 # ==========================================
-# 📐 GÖRSEL SEÇİM ARACI
+# 🔄 OTO-GÜNCELLEME MOTORU (YENİ)
+# ==========================================
+class AutoUpdater:
+    def __init__(self, current_version, root_window):
+        self.current_version = current_version
+        self.root = root_window
+
+    def check_for_updates(self):
+        threading.Thread(target=self._worker, daemon=True).start()
+
+    def _worker(self):
+        try:
+            # 1. GitHub API'sine sor
+            response = requests.get(REPO_API_URL)
+            if response.status_code == 200:
+                data = response.json()
+                latest_tag = data['tag_name'] # Örn: "v7.1"
+                
+                # Sürüm Karşılaştırma (v'yi atıyoruz)
+                clean_latest = latest_tag.replace("v", "").strip()
+                clean_current = self.current_version.replace("v", "").strip()
+
+                if clean_latest != clean_current:
+                    # Güncelleme bulundu, asset linkini al
+                    assets = data.get('assets', [])
+                    if assets:
+                        download_url = assets[0]['browser_download_url']
+                        self.root.after(0, lambda: self.prompt_update(latest_tag, download_url))
+        except Exception as e:
+            print(f"Update Check Error: {e}")
+
+    def prompt_update(self, version, url):
+        msg = f"YENİ SÜRÜM MEVCUT: {version}\n\nProgramı şimdi otomatik güncelleyip yeniden başlatmak ister misiniz?"
+        if messagebox.askyesno("Güncelleme", msg):
+            self.perform_update(url)
+
+    def perform_update(self, url):
+        # Eğer EXE değilse (Geliştirici modundaysan) sadece uyar
+        if not getattr(sys, 'frozen', False):
+            messagebox.showinfo("Bilgi", "Python script modunda otomatik güncelleme yapılamaz.\nLütfen GitHub'dan indiriniz.")
+            webbrowser.open(f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases")
+            return
+
+        # 1. Yeni EXE'yi indir (Geçici isimle)
+        try:
+            temp_exe = "new_version_temp.exe"
+            r = requests.get(url, stream=True)
+            with open(temp_exe, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=4096):
+                    f.write(chunk)
+            
+            # 2. BAT Dosyası Oluştur (Eski sil -> Yeni isim değiştir -> Başlat)
+            current_exe = sys.executable
+            exe_name = os.path.basename(current_exe)
+            
+            bat_script = f"""
+            @echo off
+            echo Guncelleniyor... Lutfen bekleyin...
+            timeout /t 3 /nobreak > NUL
+            move /Y "{temp_exe}" "{exe_name}"
+            start "" "{exe_name}"
+            del "%~f0"
+            """
+            
+            with open("updater.bat", "w") as f:
+                f.write(bat_script)
+            
+            # 3. Bat dosyasını çalıştır ve programı kapat
+            os.startfile("updater.bat")
+            sys.exit()
+
+        except Exception as e:
+            messagebox.showerror("Hata", f"Güncelleme başarısız: {e}")
+
+# ==========================================
+# GÖRSEL SEÇİM ARACI
 # ==========================================
 class SnippingTool(tk.Toplevel):
     def __init__(self, parent, callback):
@@ -145,9 +213,7 @@ class SnippingTool(tk.Toplevel):
         self.attributes('-fullscreen', True)
         self.attributes('-alpha', 0.3)
         self.configure(bg='black')
-        self.cursor_start_x = 0
-        self.cursor_start_y = 0
-        self.rect = None
+        self.cursor_start_x = 0; self.cursor_start_y = 0; self.rect = None
         self.canvas = tk.Canvas(self, cursor="cross", bg="black")
         self.canvas.pack(fill="both", expand=True)
         self.canvas.bind("<ButtonPress-1>", self.on_press)
@@ -156,18 +222,15 @@ class SnippingTool(tk.Toplevel):
         self.bind("<Escape>", lambda e: self.destroy())
 
     def on_press(self, event):
-        self.cursor_start_x = event.x
-        self.cursor_start_y = event.y
-        self.rect = self.canvas.create_rectangle(self.cursor_start_x, self.cursor_start_y, event.x, event.y, outline='red', width=3, fill="white", stipple="gray12")
+        self.cursor_start_x = event.x; self.cursor_start_y = event.y
+        self.rect = self.canvas.create_rectangle(event.x, event.y, event.x, event.y, outline='red', width=3, fill="white", stipple="gray12")
 
     def on_drag(self, event):
         self.canvas.coords(self.rect, self.cursor_start_x, self.cursor_start_y, event.x, event.y)
 
     def on_release(self, event):
-        x1 = min(self.cursor_start_x, event.x)
-        y1 = min(self.cursor_start_y, event.y)
-        x2 = max(self.cursor_start_x, event.x)
-        y2 = max(self.cursor_start_y, event.y)
+        x1 = min(self.cursor_start_x, event.x); y1 = min(self.cursor_start_y, event.y)
+        x2 = max(self.cursor_start_x, event.x); y2 = max(self.cursor_start_y, event.y)
         self.callback(x1, y1, x2, y2)
         self.destroy()
 
@@ -178,8 +241,11 @@ class MacroApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        # Açılışta varlık kontrolü yap
+        # Varlık ve Güncelleme Kontrolü
         threading.Thread(target=check_and_download_assets, daemon=True).start()
+        
+        self.updater = AutoUpdater(VERSION, self)
+        self.updater.check_for_updates()
 
         self.title(f"KO4 ELITE MACRO v{VERSION}")
         self.geometry("450x600")
@@ -199,12 +265,11 @@ class MacroApp(ctk.CTk):
         
         self.config = self.load_config()
         self.create_widgets()
-        self.check_updates()
 
     def create_widgets(self):
         self.header_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="#1a1a1a")
         self.header_frame.pack(fill="x")
-        ctk.CTkLabel(self.header_frame, text="🛡️ DOSTLARA ÖZEL", font=("Roboto Medium", 20), text_color="#e74c3c").pack(pady=15)
+        ctk.CTkLabel(self.header_frame, text="🛡️ KO4 DOSTLARA ÖZEL", font=("Roboto Medium", 20), text_color="#e74c3c").pack(pady=15)
 
         self.tabview = ctk.CTkTabview(self, width=400, height=350)
         self.tabview.pack(pady=10)
@@ -223,7 +288,7 @@ class MacroApp(ctk.CTk):
         self.btn_toggle = ctk.CTkButton(self, text="SİSTEMİ BAŞLAT", font=("Roboto", 16, "bold"), height=50, fg_color="#27ae60", hover_color="#2ecc71", command=self.toggle_macro)
         self.btn_toggle.pack(fill="x", padx=20, pady=10)
         
-        ctk.CTkLabel(self, text=f"v{VERSION} Stable", text_color="gray", font=("Arial", 10)).pack(side="bottom", pady=5)
+        ctk.CTkLabel(self, text=f"v{VERSION} Auto-Update", text_color="gray", font=("Arial", 10)).pack(side="bottom", pady=5)
 
     def build_shield_tab(self):
         parent = self.tab_shield
@@ -243,14 +308,12 @@ class MacroApp(ctk.CTk):
     def build_sword_tab(self):
         parent = self.tab_sword
         ctk.CTkLabel(parent, text="TARAMA ALANI", font=("Roboto", 10, "bold")).pack(pady=5)
-        ctk.CTkLabel(parent, text="Debuff kutusunun etrafını mouse ile çizerek seçin.", font=("Arial", 10), text_color="gray").pack()
+        ctk.CTkLabel(parent, text="Debuff kutusunu seçin.", font=("Arial", 10), text_color="gray").pack()
         
         ctk.CTkButton(parent, text="🖱️ TARAMA ALANINI ÇİZ", fg_color="#3498db", hover_color="#2980b9", height=40, command=self.open_snipping_tool).pack(pady=15)
         
         info_frame = ctk.CTkFrame(parent, fg_color="transparent")
         info_frame.pack()
-        
-        ctk.CTkLabel(info_frame, text="Seçilen Alan:", font=("Arial", 10)).pack(side="left")
         self.lbl_region_info = ctk.CTkLabel(info_frame, text=f"[{self.config['region_x1']},{self.config['region_y1']}] - [{self.config['region_x2']},{self.config['region_y2']}]", text_color="#e74c3c", font=("Arial", 10, "bold"))
         self.lbl_region_info.pack(side="left", padx=5)
 
@@ -263,10 +326,8 @@ class MacroApp(ctk.CTk):
 
     def on_snip_finished(self, x1, y1, x2, y2):
         self.deiconify()
-        self.config["region_x1"] = int(x1)
-        self.config["region_y1"] = int(y1)
-        self.config["region_x2"] = int(x2)
-        self.config["region_y2"] = int(y2)
+        self.config["region_x1"] = int(x1); self.config["region_y1"] = int(y1)
+        self.config["region_x2"] = int(x2); self.config["region_y2"] = int(y2)
         self.lbl_region_info.configure(text=f"[{x1},{y1}] - [{x2},{y2}]")
         self.save_config()
         messagebox.showinfo("Başarılı", "Tarama alanı kaydedildi!")
@@ -285,13 +346,12 @@ class MacroApp(ctk.CTk):
         setattr(self, f"entry_{prefix}_delay", entry_delay)
 
     def load_config(self):
-        final_config = self.default_config.copy()
+        final = self.default_config.copy()
         if os.path.exists(CONFIG_FILE):
             try:
-                with open(CONFIG_FILE, "r") as f:
-                    final_config.update(json.load(f))
+                with open(CONFIG_FILE, "r") as f: final.update(json.load(f))
             except: pass
-        return final_config
+        return final
 
     def save_config(self):
         try:
@@ -354,19 +414,6 @@ class MacroApp(ctk.CTk):
                         perform_sword_scan_macro((x1, y1, w, h), float(self.entry_sword_delay.get()))
                 except: pass
             time.sleep(0.001)
-
-    def check_updates(self):
-        try:
-            response = requests.get(VERSION_FILE_URL)
-            if response.status_code == 200:
-                remote_version = response.text.strip()
-                if remote_version != VERSION:
-                    self.after(0, lambda: self.show_update_dialog(remote_version))
-        except: pass
-
-    def show_update_dialog(self, version):
-        if messagebox.askyesno("Güncelleme", f"Yeni sürüm ({version}) mevcut!\nGitHub sayfasına gidip indirmek ister misiniz?"):
-            webbrowser.open(GITHUB_REPO_URL)
 
 if __name__ == "__main__":
     app = MacroApp()
