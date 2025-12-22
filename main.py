@@ -13,7 +13,7 @@ import ctypes
 import pyautogui
 
 # --- PROJE AYARLARI (v6.1 AUTO-ASSET) ---
-VERSION = "6.1"
+VERSION = "6.2"
 GITHUB_USER = "VolkanDurgut"
 GITHUB_REPO = "KO4-Macro"
 # Dosyaların ham (raw) adresleri
@@ -204,7 +204,7 @@ class MacroApp(ctk.CTk):
     def create_widgets(self):
         self.header_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="#1a1a1a")
         self.header_frame.pack(fill="x")
-        ctk.CTkLabel(self.header_frame, text="🛡️ KO4 VISUAL ENGINE", font=("Roboto Medium", 20), text_color="#e74c3c").pack(pady=15)
+        ctk.CTkLabel(self.header_frame, text="🛡️ DOSTLARA ÖZEL", font=("Roboto Medium", 20), text_color="#e74c3c").pack(pady=15)
 
         self.tabview = ctk.CTkTabview(self, width=400, height=350)
         self.tabview.pack(pady=10)
