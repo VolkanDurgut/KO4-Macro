@@ -14,7 +14,7 @@ import ctypes
 import pyautogui
 
 # --- PROJE AYARLARI (v7.0 AUTO-UPDATER ENGINE) ---
-VERSION = "7.0"
+VERSION = "7.2"
 GITHUB_USER = "VolkanDurgut"
 GITHUB_REPO = "KO4-Macro"
 REPO_API_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/releases/latest"
@@ -307,10 +307,10 @@ class MacroApp(ctk.CTk):
 
     def build_sword_tab(self):
         parent = self.tab_sword
-        ctk.CTkLabel(parent, text="TARAMA ALANI", font=("Roboto", 10, "bold")).pack(pady=5)
+        ctk.CTkLabel(parent, text="KILIÇ BÖLGESİ", font=("Roboto", 10, "bold")).pack(pady=5)
         ctk.CTkLabel(parent, text="Debuff kutusunu seçin.", font=("Arial", 10), text_color="gray").pack()
         
-        ctk.CTkButton(parent, text="🖱️ TARAMA ALANINI ÇİZ", fg_color="#3498db", hover_color="#2980b9", height=40, command=self.open_snipping_tool).pack(pady=15)
+        ctk.CTkButton(parent, text="🖱️ DEBUFF ALANINI TANIMLA", fg_color="#3498db", hover_color="#2980b9", height=40, command=self.open_snipping_tool).pack(pady=15)
         
         info_frame = ctk.CTkFrame(parent, fg_color="transparent")
         info_frame.pack()
