@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox
+from PIL import Image, ImageTk, ImageDraw # Gelişmiş görsel işleme
 import threading
 import time
 import keyboard
@@ -13,8 +14,8 @@ import webbrowser
 import ctypes
 import pyautogui
 
-# --- PROJE AYARLARI (v7.0 AUTO-UPDATER ENGINE) ---
-VERSION = "7.2"
+# --- PROJE AYARLARI (v7.4 ULTRA VISUAL) ---
+VERSION = "7.4"
 GITHUB_USER = "VolkanDurgut"
 GITHUB_REPO = "KO4-Macro"
 REPO_API_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/releases/latest"
@@ -22,6 +23,8 @@ SWORD_IMAGE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO
 
 CONFIG_FILE = "config.json"
 IMAGE_NAME = "sword.png"
+LOGO_NAME = "logo.png"  
+ICON_NAME = "icon.ico" 
 
 pydirectinput.PAUSE = 0.001
 
@@ -72,11 +75,9 @@ def perform_shield_macro(x, y, delay):
 # --- KILIÇ TARAMA FONKSİYONU ---
 def perform_sword_scan_macro(region, delay):
     try:
-        # Varlık kontrolü
         if not os.path.exists(IMAGE_NAME):
             check_and_download_assets()
 
-        # Tarama
         found_pos = pyautogui.locateOnScreen(IMAGE_NAME, region=region, confidence=0.8, grayscale=True)
         
         if found_pos:
@@ -129,7 +130,7 @@ def check_and_download_assets():
         except: pass
 
 # ==========================================
-# 🔄 OTO-GÜNCELLEME MOTORU (YENİ)
+# 🔄 OTO-GÜNCELLEME MOTORU
 # ==========================================
 class AutoUpdater:
     def __init__(self, current_version, root_window):
@@ -141,24 +142,19 @@ class AutoUpdater:
 
     def _worker(self):
         try:
-            # 1. GitHub API'sine sor
             response = requests.get(REPO_API_URL)
             if response.status_code == 200:
                 data = response.json()
-                latest_tag = data['tag_name'] # Örn: "v7.1"
-                
-                # Sürüm Karşılaştırma (v'yi atıyoruz)
+                latest_tag = data['tag_name']
                 clean_latest = latest_tag.replace("v", "").strip()
                 clean_current = self.current_version.replace("v", "").strip()
 
                 if clean_latest != clean_current:
-                    # Güncelleme bulundu, asset linkini al
                     assets = data.get('assets', [])
                     if assets:
                         download_url = assets[0]['browser_download_url']
                         self.root.after(0, lambda: self.prompt_update(latest_tag, download_url))
-        except Exception as e:
-            print(f"Update Check Error: {e}")
+        except: pass
 
     def prompt_update(self, version, url):
         msg = f"YENİ SÜRÜM MEVCUT: {version}\n\nProgramı şimdi otomatik güncelleyip yeniden başlatmak ister misiniz?"
@@ -166,13 +162,10 @@ class AutoUpdater:
             self.perform_update(url)
 
     def perform_update(self, url):
-        # Eğer EXE değilse (Geliştirici modundaysan) sadece uyar
         if not getattr(sys, 'frozen', False):
-            messagebox.showinfo("Bilgi", "Python script modunda otomatik güncelleme yapılamaz.\nLütfen GitHub'dan indiriniz.")
-            webbrowser.open(f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/releases")
+            messagebox.showinfo("Bilgi", "Python script modunda güncelleme yapılamaz.")
             return
 
-        # 1. Yeni EXE'yi indir (Geçici isimle)
         try:
             temp_exe = "new_version_temp.exe"
             r = requests.get(url, stream=True)
@@ -180,7 +173,6 @@ class AutoUpdater:
                 for chunk in r.iter_content(chunk_size=4096):
                     f.write(chunk)
             
-            # 2. BAT Dosyası Oluştur (Eski sil -> Yeni isim değiştir -> Başlat)
             current_exe = sys.executable
             exe_name = os.path.basename(current_exe)
             
@@ -192,14 +184,10 @@ class AutoUpdater:
             start "" "{exe_name}"
             del "%~f0"
             """
-            
             with open("updater.bat", "w") as f:
                 f.write(bat_script)
-            
-            # 3. Bat dosyasını çalıştır ve programı kapat
             os.startfile("updater.bat")
             sys.exit()
-
         except Exception as e:
             messagebox.showerror("Hata", f"Güncelleme başarısız: {e}")
 
@@ -235,13 +223,112 @@ class SnippingTool(tk.Toplevel):
         self.destroy()
 
 # ==========================================
+# 🎬 3D MODERN SPLASH SCREEN (YENİ)
+# ==========================================
+class SplashScreen(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        
+        self.overrideredirect(True)
+        width = 450
+        height = 350
+        
+        # Ekranın ortasına konumlandır
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        self.geometry(f"{width}x{height}+{x}+{y}")
+        self.configure(fg_color="#0d0d0d") # Koyu siyah (OLED tarzı)
+
+        # Şeffaflık Efekti için başlangıç
+        self.attributes("-alpha", 0.0)
+
+        # Ana Konteyner
+        self.main_frame = ctk.CTkFrame(self, fg_color="#0d0d0d", corner_radius=0)
+        self.main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # LOGO (Büyütülmüş ve Efektli)
+        self.logo_label = ctk.CTkLabel(self.main_frame, text="🛡️", font=("Segoe UI", 80))
+        if os.path.exists(LOGO_NAME):
+            try:
+                pil_image = Image.open(LOGO_NAME)
+                # Logoyu biraz daha büyük yapalım
+                self.logo_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(140, 140))
+                self.logo_label.configure(image=self.logo_image, text="")
+            except: pass
+        self.logo_label.pack(pady=(20, 10))
+
+        # BAŞLIK (Daha Modern Font)
+        ctk.CTkLabel(self.main_frame, text="KO4 ELITE MACRO", font=("Montserrat", 26, "bold"), text_color="#ecf0f1").pack(pady=5)
+        
+        # SÜRÜM BİLGİSİ
+        ctk.CTkLabel(self.main_frame, text=f"v{VERSION} | Ultimate Edition", font=("Consolas", 10), text_color="#7f8c8d").pack(pady=(0, 20))
+
+        # ÖZEL 3D CANVAS YÜKLEME ÇUBUĞU
+        self.canvas_width = 350
+        self.canvas_height = 8
+        self.canvas = tk.Canvas(self.main_frame, width=self.canvas_width, height=self.canvas_height, bg="#1e1e1e", highlightthickness=0)
+        self.canvas.pack(pady=10)
+
+        # Yükleme Arkaplanı (Koyu Gri)
+        self.canvas.create_rectangle(0, 0, self.canvas_width, self.canvas_height, fill="#2c3e50", outline="")
+
+        # Yükleme Çubuğu (Başlangıçta boş) -> Kırmızı Ferrari Rengi (#ff2800)
+        self.bar_id = self.canvas.create_rectangle(0, 0, 0, self.canvas_height, fill="#ff2800", outline="")
+
+        # Durum Metni
+        self.status_label = ctk.CTkLabel(self.main_frame, text="Sistem başlatılıyor...", font=("Segoe UI", 11), text_color="#95a5a6")
+        self.status_label.pack(pady=5)
+
+        # Animasyon Başlat
+        self.fade_in()
+        self.loading_value = 0
+        self.after(50, self.animate_loading)
+
+    def fade_in(self):
+        """Pencerenin yavaşça belirmesini sağlar"""
+        alpha = self.attributes("-alpha")
+        if alpha < 1.0:
+            alpha += 0.04
+            self.attributes("-alpha", alpha)
+            self.after(20, self.fade_in)
+
+    def animate_loading(self):
+        """Akıcı ve hızlanan yükleme animasyonu"""
+        if self.loading_value < 100:
+            # Hızlanma efekti (sonlara doğru hızlanır)
+            increment = 1.5 if self.loading_value < 60 else 2.5
+            self.loading_value += increment
+            
+            # Bar genişliğini güncelle
+            current_width = (self.loading_value / 100) * self.canvas_width
+            self.canvas.coords(self.bar_id, 0, 0, current_width, self.canvas_height)
+            
+            # Yazı Efektleri
+            if self.loading_value < 30: self.status_label.configure(text="Güvenlik modülleri yükleniyor...")
+            elif self.loading_value < 60: self.status_label.configure(text="GitHub bağlantısı kontrol ediliyor...")
+            elif self.loading_value < 85: self.status_label.configure(text="Konfigürasyon dosyaları okunuyor...")
+            else: self.status_label.configure(text="Sistem Hazır!")
+
+            self.after(30, self.animate_loading)
+        else:
+            time.sleep(0.3) # %100 olunca azıcık bekle
+            self.destroy()
+            app = MacroApp()
+            app.mainloop()
+
+# ==========================================
 # ANA ARAYÜZ
 # ==========================================
 class MacroApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        # Varlık ve Güncelleme Kontrolü
+        if os.path.exists(ICON_NAME):
+            try: self.iconbitmap(ICON_NAME)
+            except: pass
+
         threading.Thread(target=check_and_download_assets, daemon=True).start()
         
         self.updater = AutoUpdater(VERSION, self)
@@ -269,7 +356,19 @@ class MacroApp(ctk.CTk):
     def create_widgets(self):
         self.header_frame = ctk.CTkFrame(self, corner_radius=0, fg_color="#1a1a1a")
         self.header_frame.pack(fill="x")
-        ctk.CTkLabel(self.header_frame, text="🛡️ KO4 DOSTLARA ÖZEL", font=("Roboto Medium", 20), text_color="#e74c3c").pack(pady=15)
+        
+        # HEADER LOGO (Ufak)
+        header_text = "   KO4 DOSTLARA ÖZEL"
+        self.header_label = ctk.CTkLabel(self.header_frame, text=header_text, font=("Roboto Medium", 20), text_color="#e74c3c")
+        
+        if os.path.exists(LOGO_NAME):
+            try:
+                pil_img = Image.open(LOGO_NAME)
+                head_img = ctk.CTkImage(pil_img, size=(30, 30))
+                self.header_label.configure(image=head_img, compound="left")
+            except: pass
+            
+        self.header_label.pack(pady=15)
 
         self.tabview = ctk.CTkTabview(self, width=400, height=350)
         self.tabview.pack(pady=10)
@@ -416,5 +515,5 @@ class MacroApp(ctk.CTk):
             time.sleep(0.001)
 
 if __name__ == "__main__":
-    app = MacroApp()
-    app.mainloop()
+    splash = SplashScreen()
+    splash.mainloop()
