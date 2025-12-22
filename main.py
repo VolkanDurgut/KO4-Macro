@@ -12,14 +12,35 @@ import webbrowser
 import ctypes
 import pyautogui
 
-# --- PROJE AYARLARI (v6.0 VISUAL SELECTOR) ---
-VERSION = "6.0"
-GITHUB_REPO_URL = "https://github.com/VolkanDurgut/KO4-Macro" 
-VERSION_FILE_URL = "https://raw.githubusercontent.com/VolkanDurgut/KO4-Macro/main/version.txt"
+# --- PROJE AYARLARI (v6.1 AUTO-ASSET) ---
+VERSION = "6.1"
+GITHUB_USER = "VolkanDurgut"
+GITHUB_REPO = "KO4-Macro"
+# Dosyaların ham (raw) adresleri
+VERSION_FILE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/version.txt"
+SWORD_IMAGE_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/main/sword.png"
+GITHUB_REPO_URL = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}"
+
 CONFIG_FILE = "config.json"
 IMAGE_NAME = "sword.png"
 
 pydirectinput.PAUSE = 0.001
+
+# --- OTOMATİK DOSYA İNDİRİCİ (YENİ) ---
+def check_and_download_assets():
+    """Eğer sword.png eksikse GitHub'dan indirir."""
+    if not os.path.exists(IMAGE_NAME):
+        try:
+            print("Gerekli dosya (sword.png) eksik, indiriliyor...")
+            response = requests.get(SWORD_IMAGE_URL)
+            if response.status_code == 200:
+                with open(IMAGE_NAME, 'wb') as f:
+                    f.write(response.content)
+                print("İndirme başarılı!")
+            else:
+                print("Dosya sunucuda bulunamadı.")
+        except Exception as e:
+            print(f"İndirme hatası: {e}")
 
 # --- GHOST MODE ---
 def block_input(block=True):
@@ -68,7 +89,10 @@ def perform_shield_macro(x, y, delay):
 # --- KILIÇ TARAMA FONKSİYONU ---
 def perform_sword_scan_macro(region, delay):
     try:
-        # Ghost Mode açmadan önce tarama yap (Hız için)
+        # Önce dosyayı kontrol et, yoksa indir
+        check_and_download_assets()
+
+        # Tarama yap
         found_pos = pyautogui.locateOnScreen(IMAGE_NAME, region=region, confidence=0.8, grayscale=True)
         
         if found_pos:
@@ -112,38 +136,28 @@ def perform_sword_scan_macro(region, delay):
         block_input(False)
 
 # ==========================================
-# 📐 GÖRSEL SEÇİM ARACI (SNIPPING TOOL)
+# 📐 GÖRSEL SEÇİM ARACI
 # ==========================================
 class SnippingTool(tk.Toplevel):
     def __init__(self, parent, callback):
         super().__init__(parent)
         self.callback = callback
-        self.parent = parent
-        
-        # Tam ekran ve şeffaf yap
         self.attributes('-fullscreen', True)
-        self.attributes('-alpha', 0.3) # %30 Görünürlük (Arka planı gör)
+        self.attributes('-alpha', 0.3)
         self.configure(bg='black')
         self.cursor_start_x = 0
         self.cursor_start_y = 0
         self.rect = None
-
-        # Çizim alanı
         self.canvas = tk.Canvas(self, cursor="cross", bg="black")
         self.canvas.pack(fill="both", expand=True)
-
-        # Mouse olayları
         self.canvas.bind("<ButtonPress-1>", self.on_press)
         self.canvas.bind("<B1-Motion>", self.on_drag)
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
-        
-        # ESC ile iptal
         self.bind("<Escape>", lambda e: self.destroy())
 
     def on_press(self, event):
         self.cursor_start_x = event.x
         self.cursor_start_y = event.y
-        # Kırmızı çerçeve oluştur
         self.rect = self.canvas.create_rectangle(self.cursor_start_x, self.cursor_start_y, event.x, event.y, outline='red', width=3, fill="white", stipple="gray12")
 
     def on_drag(self, event):
@@ -154,8 +168,6 @@ class SnippingTool(tk.Toplevel):
         y1 = min(self.cursor_start_y, event.y)
         x2 = max(self.cursor_start_x, event.x)
         y2 = max(self.cursor_start_y, event.y)
-        
-        # Koordinatları ana uygulamaya gönder
         self.callback(x1, y1, x2, y2)
         self.destroy()
 
@@ -165,6 +177,9 @@ class SnippingTool(tk.Toplevel):
 class MacroApp(ctk.CTk):
     def __init__(self):
         super().__init__()
+        
+        # Açılışta varlık kontrolü yap
+        threading.Thread(target=check_and_download_assets, daemon=True).start()
 
         self.title(f"KO4 ELITE MACRO v{VERSION}")
         self.geometry("450x600")
@@ -230,17 +245,8 @@ class MacroApp(ctk.CTk):
         ctk.CTkLabel(parent, text="TARAMA ALANI", font=("Roboto", 10, "bold")).pack(pady=5)
         ctk.CTkLabel(parent, text="Debuff kutusunun etrafını mouse ile çizerek seçin.", font=("Arial", 10), text_color="gray").pack()
         
-        # GÖRSEL SEÇİM BUTONU
-        ctk.CTkButton(
-            parent, 
-            text="🖱️ TARAMA ALANINI ÇİZ", 
-            fg_color="#3498db", 
-            hover_color="#2980b9",
-            height=40,
-            command=self.open_snipping_tool
-        ).pack(pady=15)
+        ctk.CTkButton(parent, text="🖱️ TARAMA ALANINI ÇİZ", fg_color="#3498db", hover_color="#2980b9", height=40, command=self.open_snipping_tool).pack(pady=15)
         
-        # Koordinat Göstergeleri (Sadece Bilgi İçin - Kullanıcı Elle Girmez)
         info_frame = ctk.CTkFrame(parent, fg_color="transparent")
         info_frame.pack()
         
@@ -251,22 +257,16 @@ class MacroApp(ctk.CTk):
         self.build_common_settings(parent, "sword")
 
     def open_snipping_tool(self):
-        # Programı geçici olarak gizle ki ekranı kapatmasın
         self.withdraw()
         time.sleep(0.2)
         SnippingTool(self, self.on_snip_finished)
 
     def on_snip_finished(self, x1, y1, x2, y2):
-        # Programı geri getir
         self.deiconify()
-        
-        # Koordinatları kaydet
         self.config["region_x1"] = int(x1)
         self.config["region_y1"] = int(y1)
         self.config["region_x2"] = int(x2)
         self.config["region_y2"] = int(y2)
-        
-        # Etiketi güncelle
         self.lbl_region_info.configure(text=f"[{x1},{y1}] - [{x2},{y2}]")
         self.save_config()
         messagebox.showinfo("Başarılı", "Tarama alanı kaydedildi!")
@@ -274,12 +274,10 @@ class MacroApp(ctk.CTk):
     def build_common_settings(self, parent, prefix):
         set_frame = ctk.CTkFrame(parent, fg_color="transparent")
         set_frame.pack(pady=20)
-        
         ctk.CTkLabel(set_frame, text="Tuş:").pack(side="left")
         btn_key = ctk.CTkButton(set_frame, text=self.config[f"{prefix}_key"].upper(), width=50, fg_color="#34495e", command=lambda: self.listen_for_key(prefix))
         btn_key.pack(side="left", padx=5)
         setattr(self, f"btn_{prefix}_key", btn_key)
-
         ctk.CTkLabel(set_frame, text="Gecikme:").pack(side="left", padx=(10,5))
         entry_delay = ctk.CTkEntry(set_frame, width=50)
         entry_delay.insert(0, self.config[f"{prefix}_delay"])
@@ -309,11 +307,9 @@ class MacroApp(ctk.CTk):
         self.update()
         time.sleep(3)
         x, y = pydirectinput.position()
-        
         if target == "shield":
             self.entry_shield_x.delete(0, tk.END); self.entry_shield_x.insert(0, x)
             self.entry_shield_y.delete(0, tk.END); self.entry_shield_y.insert(0, y)
-            
         self.status_label.configure(text="KOORDİNAT KAYDEDİLDİ", text_color="#3498db")
         self.after(1500, lambda: self.status_label.configure(text="SİSTEM HAZIR", text_color="#95a5a6"))
 
@@ -351,19 +347,26 @@ class MacroApp(ctk.CTk):
             
             if keyboard.is_pressed(self.config["sword_key"]):
                 try:
-                    # Kaydedilen alanı al
                     x1, y1 = self.config["region_x1"], self.config["region_y1"]
                     x2, y2 = self.config["region_x2"], self.config["region_y2"]
                     w, h = x2 - x1, y2 - y1
-                    
                     if w > 0 and h > 0:
                         perform_sword_scan_macro((x1, y1, w, h), float(self.entry_sword_delay.get()))
                 except: pass
             time.sleep(0.001)
 
     def check_updates(self):
-        try: threading.Thread(target=lambda: requests.get(VERSION_FILE_URL), daemon=True).start()
+        try:
+            response = requests.get(VERSION_FILE_URL)
+            if response.status_code == 200:
+                remote_version = response.text.strip()
+                if remote_version != VERSION:
+                    self.after(0, lambda: self.show_update_dialog(remote_version))
         except: pass
+
+    def show_update_dialog(self, version):
+        if messagebox.askyesno("Güncelleme", f"Yeni sürüm ({version}) mevcut!\nGitHub sayfasına gidip indirmek ister misiniz?"):
+            webbrowser.open(GITHUB_REPO_URL)
 
 if __name__ == "__main__":
     app = MacroApp()
