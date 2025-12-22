@@ -18,7 +18,7 @@ from .updater import AutoUpdater
 
 # Profesyonel Ayrıştırma: Diğer modülleri çağırıyoruz
 from .snipping import SnippingTool
-from .splash import SplashScreen
+
 
 # --- RENK MATEMATİĞİ ---
 def hex_to_rgb(hex_color):

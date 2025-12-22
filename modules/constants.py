@@ -1,6 +1,6 @@
 # modules/constants.py
 
-VERSION = "8.1"
+VERSION = "8.2"
 GITHUB_USER = "VolkanDurgut"
 GITHUB_REPO = "KO4-Macro"
 REPO_API_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/releases/latest"
