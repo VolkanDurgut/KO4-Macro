@@ -5,7 +5,7 @@ import os
 # --- MARKA KİMLİĞİ ---
 APP_TITLE = "VOBERIX"
 APP_SUBTITLE = "NEXUS COMMAND CENTER"
-VERSION = "9.1" 
+VERSION = "v9.2" 
 
 # --- GITHUB UPDATER ---
 GITHUB_USER = "VolkanDurgut"

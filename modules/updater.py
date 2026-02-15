@@ -1,130 +1,110 @@
 # modules/updater.py
-import sys
-import os
 import requests
+import os
+import sys
+import subprocess
+import time
 import threading
-import tempfile
 import logging
-import urllib3
 from tkinter import messagebox
+from .constants import REPO_API_URL, VERSION
 
-# SSL uyarılarını sustur
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-from .constants import REPO_API_URL
-
-# Logger Ayarı
 logger = logging.getLogger(__name__)
 
 class AutoUpdater:
-    def __init__(self, current_version, root_window):
+    def __init__(self, current_version, app_instance):
         self.current_version = current_version
-        self.root = root_window
-        self.running = True 
-
-    def stop(self):
-        self.running = False
-
-    def _safe_after(self, func):
-        """
-        KRİTİK DÜZELTME: Pencere kapandıysa komut göndermeyi engeller.
-        Bu fonksiyon 'application has been destroyed' hatasını önler.
-        """
-        if not self.running: return
-        try:
-            # Pencere hala hayatta mı kontrol et (Tkinter metodları)
-            if hasattr(self.root, 'winfo_exists') and not self.root.winfo_exists():
-                return
-            
-            # Eğer pencere varsa işlemi sıraya koy
-            self.root.after(0, func)
-        except Exception:
-            # Pencere çoktan gitmişse hatayı yut, program çökmesin.
-            pass
+        self.app = app_instance
+        self.download_url = None
+        self.new_version = None
 
     def check_for_updates(self):
-        if self.running:
-            threading.Thread(target=self._worker, daemon=True).start()
+        """GitHub API üzerinden yeni sürüm kontrolü yapar."""
+        threading.Thread(target=self._check_update_thread, daemon=True).start()
 
-    def _parse_version(self, v_str):
+    def _check_update_thread(self):
         try:
-            return [int(x) for x in v_str.replace("v", "").strip().split(".")]
-        except ValueError:
-            return [0, 0]
+            # 1. GitHub API'den son sürümü çek
+            response = requests.get(REPO_API_URL, timeout=10)
+            if response.status_code != 200:
+                return
 
-    def _worker(self):
-        try:
-            if not self.running: return
-
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) VoberixUpdater/1.0'}
-
-            # Bağlantı hatalarını yut (İnternet yoksa program açılmaya devam etsin)
-            try:
-                response = requests.get(REPO_API_URL, headers=headers, timeout=5, verify=False)
-            except Exception:
-                return 
-
-            if not self.running: return 
-
-            if response.status_code == 200:
-                data = response.json()
-                latest_tag = data.get('tag_name', 'v0.0')
+            data = response.json()
+            latest_tag = data.get("tag_name", "").strip() 
+            
+            # --- VERSİYON KONTROLÜ (SENİN ÇÖZÜMÜNLE UYUMLU) ---
+            # Sen constants.py'ye "v" ekledin, bu harika.
+            # Yine de garanti olsun diye küçük harf yapıp karşılaştırıyoruz.
+            if latest_tag.lower() != self.current_version.lower():
+                self.new_version = latest_tag
+                # EXE dosyasını bul
+                for asset in data.get("assets", []):
+                    if asset["name"].endswith(".exe"):
+                        self.download_url = asset["browser_download_url"]
+                        break
                 
-                v_server = self._parse_version(latest_tag)
-                v_local = self._parse_version(self.current_version)
+                if self.download_url:
+                    self.app.after(0, self._prompt_update)
 
-                if v_server > v_local:
-                    logger.info(f"GÜNCELLEME: v{v_local} -> v{v_server}")
-                    assets = data.get('assets', [])
-                    if assets:
-                        download_url = assets[0]['browser_download_url']
-                        # GÜVENLİ ÇAĞRI: Pencere yoksa hata verme
-                        self._safe_after(lambda: self.prompt_update(latest_tag, download_url))
         except Exception as e:
-            logger.error(f"Updater hatası: {e}")
+            logger.error(f"Guncelleme kontrol hatasi: {e}")
 
-    def prompt_update(self, version, url):
-        if not self.running: return
+    def _prompt_update(self):
+        """Kullanıcıya güncelleme onayı sorar."""
+        msg = f"Yeni güncelleme mevcut ({self.new_version})!\nŞimdi indirip güncellemek ister misiniz?"
+        if messagebox.askyesno("VOBERIX Güncelleme", msg):
+            self.app.show_toast("GÜNCELLENİYOR", "İndiriliyor, lütfen kapatmayın...", "warning")
+            threading.Thread(target=self._download_and_install, daemon=True).start()
+
+    def _download_and_install(self):
         try:
-            msg = f"YENİ SÜRÜM: {version}\n\nGüncellemek ister misiniz?"
-            # Parent pencere yoksa bile hata vermemesi için try-except
-            if messagebox.askyesno("VOBERIX Güncelleme", msg, parent=self.root):
-                self.perform_update(url)
+            current_exe = os.path.abspath(sys.argv[0])
+            new_exe = current_exe + ".tmp"
+
+            response = requests.get(self.download_url, stream=True, timeout=60)
+            if response.status_code == 200:
+                with open(new_exe, 'wb') as f:
+                    for chunk in response.iter_content(4096):
+                        f.write(chunk)
+                
+                updater_bat = "update_installer.bat"
+                exe_name = os.path.basename(current_exe)
+                
+                # DLL HATASINI ÖNLEYEN SCRIPT
+                cmd = f"""
+@echo off
+@chcp 65001 > nul
+echo Guncelleme yukleniyor...
+timeout /t 3 /nobreak > NUL
+taskkill /F /IM "{exe_name}" > NUL 2>&1
+timeout /t 1 /nobreak > NUL
+del "{current_exe}"
+move /Y "{new_exe}" "{current_exe}"
+start "" "{current_exe}"
+del "%~f0"
+"""
+                with open(updater_bat, "w", encoding="utf-8") as bat:
+                    bat.write(cmd)
+
+                self.app.after(0, lambda: self._finalize_update(updater_bat))
+
+            else:
+                self.app.after(0, lambda: self.app.show_toast("HATA", "İndirme başarısız.", "error"))
+
+        except Exception as e:
+            logger.error(f"Indirme hatasi: {e}")
+            self.app.after(0, lambda: self.app.show_toast("HATA", f"Hata: {e}", "error"))
+
+    def _finalize_update(self, bat_file):
+        """Programı kapatıp güncelleme scriptini BAĞIMSIZ PENCEREDE çalıştırır."""
+        messagebox.showinfo("GÜNCELLEME", "İndirme tamamlandı. Program yeniden başlatılıyor.")
+        
+        try:
+            # KRİTİK NOKTA: CREATE_NEW_CONSOLE ile scripti ayırıyoruz.
+            # Bu sayede VOBERIX kapansa bile script çalışmaya devam eder ve DLL hatası vermez.
+            creation_flags = 0x00000010 
+            subprocess.Popen([bat_file], shell=True, creationflags=creation_flags)
         except Exception:
-            pass
-
-    def perform_update(self, url):
-        if not getattr(sys, 'frozen', False): return
-
-        try:
-            # İndirme başladığı bilgisini ver (Güvenli Çağrı)
-            self._safe_after(lambda: messagebox.showinfo("İndiriliyor", "Güncelleme iniyor, lütfen bekleyin."))
+            os.startfile(bat_file)
             
-            r = requests.get(url, stream=True, timeout=60, verify=False)
-            temp_exe = os.path.join(tempfile.gettempdir(), "voberix_new.exe")
-            
-            with open(temp_exe, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            
-            current_exe = sys.executable
-            bat_path = os.path.join(tempfile.gettempdir(), "update.bat")
-            
-            # Türkçe karakter sorununu önlemek için basit ASCII bat dosyası
-            bat_script = f"""
-            @echo off
-            timeout /t 2 /nobreak > NUL
-            move /Y "{temp_exe}" "{current_exe}"
-            start "" "{current_exe}"
-            del "%~f0"
-            """
-            
-            with open(bat_path, "w") as f:
-                f.write(bat_script)
-            
-            os.startfile(bat_path)
-            self.running = False
-            sys.exit(0)
-            
-        except Exception as e:
-            logger.error(f"Update başarısız: {e}")
+        self.app.on_closing()
