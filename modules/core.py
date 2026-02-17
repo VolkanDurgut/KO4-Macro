@@ -176,71 +176,47 @@ def perform_mage56_logic(skill_key, r_key, stop_callback=None):
     except Exception as e:
         logger.error(f"Mage56 Core Error: {e}")
 
-# --- YENİ: ARCHER 3-5 ÖZEL MOTORU (5'Lİ OK FIX) ---
+# --- ARCHER 3-5 ÖZEL MOTORU ---
 def perform_archer35_logic(skill1_key, skill2_key, skill3_key, stop_callback=None):
-    """
-    AMC Referanslı Okçu 3-5 Kombosu.
-    Skill 1 (5'li Ok) için ekstra stabilizasyon eklendi.
-    Skill 3 opsiyonel hale getirildi.
-    """
     try:
         s1 = DI_KEYS.get(skill1_key.lower())
         s2 = DI_KEYS.get(skill2_key.lower())
-        
-        # S3 boş bırakılırsa hata vermesin, None dönsün
         s3 = DI_KEYS.get(skill3_key.lower()) if skill3_key and skill3_key.strip() else None
-        
         w_code = DI_KEYS.get('w')
 
-        # S1, S2 ve W zorunlu.
         if not (s1 and s2 and w_code): return
 
-        # --- ADIM 1: Skill 1 (5'li Ok) ---
-        # Bas -> 220ms -> Çek -> 270ms (Artırıldı!)
+        # --- Skill 1 ---
         _press_scancode(s1)
-        if precise_wait(0.22, stop_callback):
-            _release_scancode(s1); return
+        if precise_wait(0.22, stop_callback): _release_scancode(s1); return
         _release_scancode(s1)
-        
-        # BURASI ÖNEMLİ: 220ms yetmediği için 270ms (0.27) yaptık.
-        # Bu sayede animasyon tamamlanır ve W iptal etmez.
         if precise_wait(0.27, stop_callback): return
 
-        # --- ADIM 2: W (Cancel) ---
+        # Cancel
         _press_scancode(w_code)
-        if precise_wait(0.015, stop_callback):
-            _release_scancode(w_code); return
+        if precise_wait(0.015, stop_callback): _release_scancode(w_code); return
         _release_scancode(w_code)
 
-        # --- ADIM 3: Skill 2 (3'lü Ok) ---
-        # Bas -> 220ms -> Çek -> 220ms (Burası aynı kalabilir, 3'lü hızlıdır)
+        # --- Skill 2 ---
         _press_scancode(s2)
-        if precise_wait(0.22, stop_callback):
-            _release_scancode(s2); return
+        if precise_wait(0.22, stop_callback): _release_scancode(s2); return
         _release_scancode(s2)
         if precise_wait(0.22, stop_callback): return
 
-        # --- ADIM 4: W (Cancel) ---
+        # Cancel
         _press_scancode(w_code)
-        if precise_wait(0.015, stop_callback):
-            _release_scancode(w_code); return
+        if precise_wait(0.015, stop_callback): _release_scancode(w_code); return
         _release_scancode(w_code)
 
-        # --- ADIM 5 & 6: Skill 3 (OPSİYONEL) ---
-        # Kullanıcı arayüzde 3. skilli boş bıraktıysa burası çalışmaz.
+        # --- Skill 3 ---
         if s3:
             _press_scancode(s3)
-            if precise_wait(0.015, stop_callback):
-                _release_scancode(s3); return
+            if precise_wait(0.015, stop_callback): _release_scancode(s3); return
             _release_scancode(s3)
-
-            # W (Cancel)
             _press_scancode(w_code)
-            if precise_wait(0.015, stop_callback):
-                _release_scancode(w_code); return
+            if precise_wait(0.015, stop_callback): _release_scancode(w_code); return
             _release_scancode(w_code)
 
-        # Döngü sonu stabilizasyon (50ms)
         precise_wait(0.05, stop_callback)
 
     except Exception as e:
@@ -271,6 +247,10 @@ def is_key_held(hex_code):
 
 @contextmanager
 def ghost_mode_action():
+    """
+    Mouse'u geçici olarak hedefe götürür, işlemi yapar ve geri getirir.
+    Geri dönmeden önce bekleme süresi eklendi (Stabilizasyon).
+    """
     orig_x, orig_y = get_cursor_pos()
     held_left = is_key_held(0x01) 
     try:
@@ -278,6 +258,10 @@ def ghost_mode_action():
         if held_left: _mouse_click(MOUSEEVENTF_LEFTUP)
         yield 
     finally:
+        # ÖNEMLİ DEĞİŞİKLİK:
+        # İşlem bittiğinde (yield bittiğinde), mouse hemen geri kaçmasın.
+        # Bu context manager'ı kullanan fonksiyonun içinde 'precise_wait' olsa bile,
+        # buradaki move işlemi çok kritik.
         hardware_move(orig_x, orig_y)
         if held_left: _mouse_click(MOUSEEVENTF_LEFTDOWN)
         _block_input(False)
@@ -286,11 +270,11 @@ def perform_shield_macro(x, y, user_delay):
     try:
         with ghost_mode_action():
             hardware_move(x, y)
-            precise_wait(0.05) 
+            precise_wait(0.02) # Hızlandırıldı
             _mouse_click(MOUSEEVENTF_RIGHTDOWN)
-            precise_wait(0.06)
+            precise_wait(0.02) # Hızlandırıldı
             _mouse_click(MOUSEEVENTF_RIGHTUP)
-            precise_wait(0.03)
+            precise_wait(0.01) # Hızlandırıldı
             session_stats.increment_shield()
     except: pass
 
@@ -298,17 +282,39 @@ def _perform_scan_logic(region, user_delay, image_target_path, log_tag):
     try:
         if not os.path.exists(image_target_path): return
         needle_image = Image.open(image_target_path)
+        # confidence değerini biraz daha toleranslı yaptım (0.7 -> 0.75 veya sabit)
         found_pos = pyautogui.locateOnScreen(needle_image, region=region, confidence=0.7, grayscale=True)
         if found_pos:
             target_x, target_y = pyautogui.center(found_pos)
+            
             with ghost_mode_action():
                 hardware_move(int(target_x), int(target_y))
+                
+                # Hareket sonrası stabilizasyon (Süper Hızlı)
+                precise_wait(0.01)
+                
+                # --- 1. TIK (SOL) ---
+                _mouse_click(MOUSEEVENTF_LEFTDOWN)
+                precise_wait(0.02) 
+                _mouse_click(MOUSEEVENTF_LEFTUP)
+                
+                # İki tık arası (Optimize)
+                precise_wait(0.03) # 40ms -> 30ms'ye çekildi
+                
+                # --- 2. TIK (SOL) ---
+                _mouse_click(MOUSEEVENTF_LEFTDOWN)
                 precise_wait(0.02)
-                _mouse_click(MOUSEEVENTF_LEFTDOWN); precise_wait(0.01); _mouse_click(MOUSEEVENTF_LEFTUP)
-                precise_wait(0.03)
-                _mouse_click(MOUSEEVENTF_LEFTDOWN); precise_wait(0.01); _mouse_click(MOUSEEVENTF_LEFTUP)
+                _mouse_click(MOUSEEVENTF_LEFTUP)
+                
+                # İstatistik
                 if log_tag == "SWORD": session_stats.increment_sword()
                 elif log_tag == "RESTORE": session_stats.increment_restore()
+                
+                # Mouse geri dönmeden önce oyunun algılaması için bekleme
+                # 0.05 -> 0.02 (Oyunun algılayabileceği en alt sınıra çekildi)
+                # Bu sayede mouse ikon üzerinde "asılı" kalmayacak.
+                precise_wait(0.02) 
+                
     except: pass
 
 def perform_sword_scan_macro(region, user_delay):
