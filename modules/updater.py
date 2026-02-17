@@ -24,7 +24,6 @@ class AutoUpdater:
 
     def _check_update_thread(self):
         try:
-            # 1. GitHub API'den son sürümü çek
             response = requests.get(REPO_API_URL, timeout=10)
             if response.status_code != 200:
                 return
@@ -32,12 +31,9 @@ class AutoUpdater:
             data = response.json()
             latest_tag = data.get("tag_name", "").strip() 
             
-            # --- VERSİYON KONTROLÜ (SENİN ÇÖZÜMÜNLE UYUMLU) ---
-            # Sen constants.py'ye "v" ekledin, bu harika.
-            # Yine de garanti olsun diye küçük harf yapıp karşılaştırıyoruz.
-            if latest_tag.lower() != self.current_version.lower():
+            # Versiyon kontrolü ("v" harfi toleranslı)
+            if latest_tag.lower().lstrip('v') != self.current_version.lower().lstrip('v'):
                 self.new_version = latest_tag
-                # EXE dosyasını bul
                 for asset in data.get("assets", []):
                     if asset["name"].endswith(".exe"):
                         self.download_url = asset["browser_download_url"]
@@ -50,7 +46,6 @@ class AutoUpdater:
             logger.error(f"Guncelleme kontrol hatasi: {e}")
 
     def _prompt_update(self):
-        """Kullanıcıya güncelleme onayı sorar."""
         msg = f"Yeni güncelleme mevcut ({self.new_version})!\nŞimdi indirip güncellemek ister misiniz?"
         if messagebox.askyesno("VOBERIX Güncelleme", msg):
             self.app.show_toast("GÜNCELLENİYOR", "İndiriliyor, lütfen kapatmayın...", "warning")
@@ -59,8 +54,10 @@ class AutoUpdater:
     def _download_and_install(self):
         try:
             current_exe = os.path.abspath(sys.argv[0])
-            new_exe = current_exe + ".tmp"
+            new_exe = current_exe + ".tmp"      # İndirilen yeni dosya
+            old_exe = current_exe + ".old"      # Eski dosyanın yeni adı (Yedek)
 
+            # Dosyayı indir
             response = requests.get(self.download_url, stream=True, timeout=60)
             if response.status_code == 200:
                 with open(new_exe, 'wb') as f:
@@ -70,17 +67,37 @@ class AutoUpdater:
                 updater_bat = "update_installer.bat"
                 exe_name = os.path.basename(current_exe)
                 
-                # DLL HATASINI ÖNLEYEN SCRIPT
+                # --- ONEDRIVE DOSTU GÜNCELLEME SCRIPT'İ ---
+                # 1. Eski dosyayı SİLMEK yerine ADINI DEĞİŞTİRİYORUZ (move). Bu işlem kilitleme yapmaz.
+                # 2. Yeni dosyayı yerine koyuyoruz.
+                # 3. Programı başlatıyoruz.
+                # 4. En son temizlik yapıyoruz (Eğer silinemezse de sorun değil, .old olarak kalır).
+                
                 cmd = f"""
 @echo off
 @chcp 65001 > nul
-echo Guncelleme yukleniyor...
+echo Guncelleme baslatiliyor... Lutfen bekleyin...
+
+:: 1. Programın kapanması için bekle
 timeout /t 3 /nobreak > NUL
 taskkill /F /IM "{exe_name}" > NUL 2>&1
-timeout /t 1 /nobreak > NUL
-del "{current_exe}"
-move /Y "{new_exe}" "{current_exe}"
+
+:: 2. OneDrive senkronizasyonu için kısa mola
+timeout /t 2 /nobreak > NUL
+
+:: 3. Eski dosyanın varsa yedeğini temizle
+if exist "{old_exe}" del "{old_exe}"
+
+:: 4. Mevcut dosyayı .old yap (SİLME YOK, SADECE İSİM DEĞİŞTİRME)
+move /Y "{current_exe}" "{old_exe}" > NUL
+
+:: 5. Yeni dosyayı asıl yerine koy
+move /Y "{new_exe}" "{current_exe}" > NUL
+
+:: 6. Yeni programı başlat (Start komutu ile bağımsız)
 start "" "{current_exe}"
+
+:: 7. Scripti temizle
 del "%~f0"
 """
                 with open(updater_bat, "w", encoding="utf-8") as bat:
@@ -96,15 +113,16 @@ del "%~f0"
             self.app.after(0, lambda: self.app.show_toast("HATA", f"Hata: {e}", "error"))
 
     def _finalize_update(self, bat_file):
-        """Programı kapatıp güncelleme scriptini BAĞIMSIZ PENCEREDE çalıştırır."""
+        """Scripti tamamen bağımsız bir süreç olarak başlat."""
         messagebox.showinfo("GÜNCELLEME", "İndirme tamamlandı. Program yeniden başlatılıyor.")
         
         try:
-            # KRİTİK NOKTA: CREATE_NEW_CONSOLE ile scripti ayırıyoruz.
-            # Bu sayede VOBERIX kapansa bile script çalışmaya devam eder ve DLL hatası vermez.
-            creation_flags = 0x00000010 
+            # CREATE_NEW_CONSOLE | DETACHED_PROCESS benzeri bir yapı
+            # Shell=True ve creationflags ile CMD penceresini ana programdan koparıyoruz.
+            creation_flags = 0x00000010 # CREATE_NEW_CONSOLE
             subprocess.Popen([bat_file], shell=True, creationflags=creation_flags)
         except Exception:
             os.startfile(bat_file)
             
+        # Programı kapat
         self.app.on_closing()
