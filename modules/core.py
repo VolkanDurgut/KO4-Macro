@@ -299,7 +299,7 @@ def _perform_scan_logic(region, user_delay, image_target_path, log_tag):
                 _mouse_click(MOUSEEVENTF_LEFTUP)
                 
                 # İki tık arası (Optimize)
-                precise_wait(0.03) # 40ms -> 30ms'ye çekildi
+                precise_wait(0.04) # 40ms -> 30ms'ye çekildi
                 
                 # --- 2. TIK (SOL) ---
                 _mouse_click(MOUSEEVENTF_LEFTDOWN)

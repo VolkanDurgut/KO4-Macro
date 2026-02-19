@@ -66,7 +66,7 @@ class MacroApp(ctk.CTk):
             except: pass
             
         self.title(f"{APP_TITLE} | COMMAND CENTER")
-        self.geometry("1280x700") 
+        self.geometry("1280x800")
         ctk.set_appearance_mode("Dark")
         self.configure(fg_color=COLORS["bg_main"])
         
@@ -140,24 +140,33 @@ class MacroApp(ctk.CTk):
         )
         self.status_badge.pack(side="right")
 
-        # 2. Modül Grid (6 Sütunlu Yapı)
-        self.dashboard_frame = ctk.CTkFrame(container, fg_color="transparent")
-        self.dashboard_frame.pack(fill="both", expand=True, pady=10)
-        self.dashboard_frame.grid_columnconfigure((0,1,2,3,4,5), weight=1) 
+        # 2. Modül Grid (2 SATIRLI YAPI)
+        
+        # --- SATIR 1 ---
+        row1_frame = ctk.CTkFrame(container, fg_color="transparent")
+        row1_frame.pack(fill="x", pady=(0, 15))
+        row1_frame.grid_columnconfigure((0,1,2,3), weight=1)
 
-        ModuleCard(self.dashboard_frame, self, "sword", "ATAK", IMAGE_NAME, "⚔", self._setup_sword_extras, 0)
-        ModuleCard(self.dashboard_frame, self, "shield", "KALKAN", SHIELD_IMAGE_NAME, "🛡", self._setup_shield_extras, 1)
-        ModuleCard(self.dashboard_frame, self, "restore", "YAŞAM", RESTORE_IMAGE_NAME, "❤️", self._setup_restore_extras, 2)
+        ModuleCard(row1_frame, self, "sword", "ATAK", IMAGE_NAME, "⚔", self._setup_sword_extras, 0)
+        ModuleCard(row1_frame, self, "shield", "KALKAN", SHIELD_IMAGE_NAME, "🛡", self._setup_shield_extras, 1)
+        ModuleCard(row1_frame, self, "restore", "YAŞAM", RESTORE_IMAGE_NAME, "❤️", self._setup_restore_extras, 2)
+        ModuleCard(row1_frame, self, "combo", "KOMBO", ATTACK_IMAGE_NAME, "⚡", self._setup_combo_extras, 3)
+
+        # --- SATIR 2 ---
+        row2_frame = ctk.CTkFrame(container, fg_color="transparent")
+        row2_frame.pack(fill="x")
+        row2_frame.grid_columnconfigure((0,1,2,3), weight=1)
+
+        ModuleCard(row2_frame, self, "mage56", "MAGE 56", "", "🔥", self._setup_mage56_extras, 0)
+        ModuleCard(row2_frame, self, "archer35", "OKÇU 3-5", ARROWS_IMAGE_NAME, "🏹", self._setup_archer35_extras, 1)
         
-        # GÜNCELLENDİ: KOMBO (Artık ATTACK_IMAGE_NAME kullanıyor)
-        ModuleCard(self.dashboard_frame, self, "combo", "KOMBO", ATTACK_IMAGE_NAME, "⚡", self._setup_combo_extras, 3)
-        
-        ModuleCard(self.dashboard_frame, self, "mage56", "MAGE 56", "", "🔥", self._setup_mage56_extras, 4)
-        ModuleCard(self.dashboard_frame, self, "archer35", "OKÇU 3-5", ARROWS_IMAGE_NAME, "🏹", self._setup_archer35_extras, 5)
+        # Boşluk doldurmak için görünmez bir frame (Dengelemek için)
+        ctk.CTkFrame(row2_frame, fg_color="transparent").grid(row=0, column=2, sticky="nsew", padx=5)
+        ctk.CTkFrame(row2_frame, fg_color="transparent").grid(row=0, column=3, sticky="nsew", padx=5)
 
         # 3. Alt Panel
         bottom_panel = ctk.CTkFrame(container, fg_color="transparent")
-        bottom_panel.pack(fill="x", side="bottom", pady=40) 
+        bottom_panel.pack(fill="x", side="bottom", pady=20) 
 
         self.btn_toggle = ctk.CTkButton(
             bottom_panel, text="SİSTEMİ BAŞLAT", font=("Arial", 14, "bold"), height=60,
@@ -250,25 +259,19 @@ class MacroApp(ctk.CTk):
         self.entry_mage56_r.insert(0, self.cfg.get("mage56_r_key", "r"))
         self.entry_mage56_r.bind("<KeyRelease>", lambda e: self.cfg.set("mage56_r_key", self.entry_mage56_r.get()))
 
-    # --- OKÇU 3-5 EKSTRA AYARLARI ---
     def _setup_archer35_extras(self, parent):
-        # Skill 1
-        ctk.CTkLabel(parent, text="Skill 1 (Örn: 3)", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
+        ctk.CTkLabel(parent, text="5'lü OK (Örn: 3)", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
         self.entry_arch35_s1 = ctk.CTkEntry(parent, width=80, height=24, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
         self.entry_arch35_s1.pack(pady=2)
         self.entry_arch35_s1.insert(0, self.cfg.get("archer35_skill1_key", "3"))
         self.entry_arch35_s1.bind("<KeyRelease>", lambda e: self.cfg.set("archer35_skill1_key", self.entry_arch35_s1.get()))
 
-        # Skill 2
-        ctk.CTkLabel(parent, text="Skill 2 (Örn: 4)", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
+        ctk.CTkLabel(parent, text="3'li OK (Örn: 4)", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
         self.entry_arch35_s2 = ctk.CTkEntry(parent, width=80, height=24, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
         self.entry_arch35_s2.pack(pady=2)
         self.entry_arch35_s2.insert(0, self.cfg.get("archer35_skill2_key", "4"))
         self.entry_arch35_s2.bind("<KeyRelease>", lambda e: self.cfg.set("archer35_skill2_key", self.entry_arch35_s2.get()))
         
-        # Skill 3 alanı kaldırıldı.
-
-    # Diğer Modül Ekstraları
     def _setup_sword_extras(self, p):
         ctk.CTkButton(p, text="ALAN SEÇ", height=25, fg_color=COLORS["bg_input"], hover_color=COLORS["btn_hover"], 
                       border_width=1, border_color=COLORS["border_dim"], command=self.open_snipping_tool).pack(pady=10)

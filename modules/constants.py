@@ -32,7 +32,7 @@ IMAGE_NAME = resource_path("sword.png")
 RESTORE_IMAGE_NAME = resource_path("restore.png")
 SHIELD_IMAGE_NAME = resource_path("shield.png")
 ARROWS_IMAGE_NAME = resource_path("arrows.png") 
-ATTACK_IMAGE_NAME = resource_path("attack.png") # YENİ EKLENDİ (Kombo Görseli)
+ATTACK_IMAGE_NAME = resource_path("attack.png") 
 LOGO_NAME = resource_path("logo.png")
 ICON_NAME = resource_path("icon.ico")
 
@@ -104,10 +104,10 @@ DEFAULT_CONFIG = {
     "mage56_skill_key": "2", 
     "mage56_r_key": "r",      
 
-    # --- YENİ: OKÇU 3-5 MODÜLÜ ---
+    # --- OKÇU 3-5 MODÜLÜ ---
     "archer35_active": False,
-    "archer35_key": "g",         # Başlatma tuşu (Örn: G)
-    "archer35_skill1_key": "3",  # 1. Skill (Örn: 3)
-    "archer35_skill2_key": "4",  # 2. Skill (Örn: 4)
-    "archer35_skill3_key": "5"   # 3. Skill (Örn: 5)
+    "archer35_key": "g",         
+    "archer35_skill1_key": "3",  
+    "archer35_skill2_key": "4",  
+    "archer35_skill3_key": "5"
 }

@@ -11,7 +11,7 @@ from .features.sword import run_sword_module
 from .features.restore import run_restore_module
 from .features.combo import run_combo_module
 from .features.mage56 import run_mage56_module
-from .features.archer35 import run_archer35_module  # YENİ: Okçu 3-5 Modülü
+from .features.archer35 import run_archer35_module
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ class AutomationEngine:
             # C) Mage 56 Modülü
             run_mage56_module(self.cfg)
 
-            # D) Okçu 3-5 Modülü (YENİ!)
+            # D) Okçu 3-5 Modülü
             run_archer35_module(self.cfg)
 
             # E) Görüntü İşleme Modülleri (Sword & Restore)
