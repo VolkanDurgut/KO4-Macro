@@ -62,8 +62,8 @@ sys.excepthook = global_exception_handler
 # --- MODÜL YÜKLEME ---
 try:
     from modules.splash import SplashScreen
+    from modules.login import LoginApp # YENİDEN EKLENDİ
     from modules.ui import MacroApp 
-    # Login ekranını import etmemize gerek yok, kullanmayacağız.
 except ImportError as e:
     logger.critical(f"Modül import hatası: {e}")
     ctypes.windll.user32.MessageBoxW(0, f"Eksik Dosya Hatası:\n{e}", "Başlatılamadı", 16)
@@ -71,15 +71,22 @@ except ImportError as e:
 
 # --- UYGULAMA AKIŞI ---
 
-def start_macro_system_bypassed(): 
-    """
-    Login ekranını atlayarak doğrudan Dashboard'u başlatır.
-    auth_api=None gönderildiği için ui.py içindeki lisans kontrolleri çalışmaz.
-    """
+def start_login_system(): 
+    """Splash ekranı bittikten sonra Giriş (Login) ekranını başlatır."""
     try:
-        logger.info("Sistem başlatılıyor (Keyless Mode)...")
-        # auth_api=None göndererek güvenliği pas geçiyoruz
-        app = MacroApp(auth_api=None) 
+        logger.info("Login ekranı başlatılıyor...")
+        # Login başarılı olursa start_main_app fonksiyonunu tetikleyecek
+        login_app = LoginApp(on_success_callback=start_main_app) 
+        login_app.mainloop()
+    except Exception as e:
+        global_exception_handler(type(e), e, e.__traceback__)
+
+def start_main_app(auth_api_session):
+    """Giriş başarılı olduğunda asıl Kontrol Merkezini başlatır."""
+    try:
+        logger.info("Sistem başlatılıyor (Secure Mode)...")
+        # Artık auth_api=None değil, geçerli oturum anahtarını gönderiyoruz
+        app = MacroApp(auth_api=auth_api_session) 
         app.mainloop()
     except Exception as e:
         global_exception_handler(type(e), e, e.__traceback__)
@@ -104,8 +111,8 @@ if __name__ == "__main__":
     try:
         logger.info(f">>> VOBERIX v{VERSION} BAŞLATILIYOR <<<")
         
-        # Splash ekranı kapandığında doğrudan bypass fonksiyonunu çağırır.
-        splash = SplashScreen(main_app_callback=start_macro_system_bypassed)
+        # Splash ekranı kapandığında artık direkt Dashboard'u değil, Login sistemini çağıracak
+        splash = SplashScreen(main_app_callback=start_login_system)
         splash.mainloop()
         
     except Exception as e:

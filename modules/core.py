@@ -3,9 +3,12 @@ import ctypes
 import time
 import os
 import pydirectinput
-import pyautogui
 import logging
 import re
+import random
+import cv2        # OpenCV Görüntü İşleme
+import numpy as np # Matematiksel matris işlemleri
+import mss        # Işık hızında ekran yakalama
 from PIL import Image 
 from contextlib import contextmanager
 from .constants import (
@@ -92,17 +95,27 @@ def _release_scancode(hexKeyCode):
     x = Input(ctypes.c_ulong(INPUT_KEYBOARD), ii_)
     _send_input(x)
 
-def precise_wait(duration, stop_callback=None):
+# --- İNSANLAŞTIRMA (GÜVENLİ) ---
+def humanized_wait_calc(base_duration):
+    if base_duration <= 0: return 0
+    variance = random.uniform(-0.0015, 0.0015) 
+    actual_duration = base_duration + variance
+    return max(0.001, actual_duration)
+
+def precise_wait(duration, stop_callback=None, humanize=True):
     if duration <= 0: return False
+    target_duration = humanized_wait_calc(duration) if humanize else duration
     start = time.perf_counter()
-    end = start + duration
+    end = start + target_duration
     while True:
         if stop_callback and stop_callback(): return True 
         current = time.perf_counter()
         remaining = end - current
         if remaining <= 0: return False 
-        if remaining > 0.002: time.sleep(0.001)
-        else: pass 
+        if remaining > 0.002: 
+            time.sleep(0.001)
+        else: 
+            pass 
 
 def game_key_press(key_char, hold_time=0.03):
     try:
@@ -110,7 +123,7 @@ def game_key_press(key_char, hold_time=0.03):
         if key in DI_KEYS:
             scancode = DI_KEYS[key]
             _press_scancode(scancode)
-            precise_wait(hold_time) 
+            precise_wait(hold_time, humanize=True) 
             _release_scancode(scancode)
         else:
             pydirectinput.press(key)
@@ -134,7 +147,7 @@ def execute_combo_sequence(sequence_str, delay_between, stop_callback=None):
         if stop_callback and stop_callback(): return True 
         game_key_press(k)
         if delay_between > 0:
-            aborted = precise_wait(delay_between, stop_callback)
+            aborted = precise_wait(delay_between, stop_callback, humanize=True)
             if aborted: return True
     return False
 
@@ -147,29 +160,25 @@ def perform_mage56_logic(skill_key, r_key, stop_callback=None):
 
         if not (s_code and r_code and w_code): return
 
-        # 1. Skill Vur
         _press_scancode(s_code)
-        if precise_wait(0.005, stop_callback): 
+        if precise_wait(0.005, stop_callback, True): 
             _release_scancode(s_code); return
         _release_scancode(s_code)
-        if precise_wait(0.005, stop_callback): return
+        if precise_wait(0.005, stop_callback, True): return
 
-        # 2. W Bas
         _press_scancode(w_code)
-        if precise_wait(0.02, stop_callback):
+        if precise_wait(0.02, stop_callback, True):
             _release_scancode(w_code); return
         _release_scancode(w_code)
-        if precise_wait(0.02, stop_callback): return
+        if precise_wait(0.02, stop_callback, True): return
 
-        # 3. R Basılı Tut
         _press_scancode(r_code)
-        if precise_wait(1.1, stop_callback):
+        if precise_wait(1.1, stop_callback, True):
             _release_scancode(r_code); return
         _release_scancode(r_code)
 
-        # 4. W Bas
         _press_scancode(w_code)
-        if precise_wait(0.02, stop_callback):
+        if precise_wait(0.02, stop_callback, True):
             _release_scancode(w_code); return
         _release_scancode(w_code)
 
@@ -186,38 +195,33 @@ def perform_archer35_logic(skill1_key, skill2_key, skill3_key, stop_callback=Non
 
         if not (s1 and s2 and w_code): return
 
-        # --- Skill 1 ---
         _press_scancode(s1)
-        if precise_wait(0.22, stop_callback): _release_scancode(s1); return
+        if precise_wait(0.22, stop_callback, True): _release_scancode(s1); return
         _release_scancode(s1)
-        if precise_wait(0.27, stop_callback): return
+        if precise_wait(0.27, stop_callback, True): return
 
-        # Cancel
         _press_scancode(w_code)
-        if precise_wait(0.015, stop_callback): _release_scancode(w_code); return
+        if precise_wait(0.015, stop_callback, True): _release_scancode(w_code); return
         _release_scancode(w_code)
 
-        # --- Skill 2 ---
         _press_scancode(s2)
-        if precise_wait(0.22, stop_callback): _release_scancode(s2); return
+        if precise_wait(0.22, stop_callback, True): _release_scancode(s2); return
         _release_scancode(s2)
-        if precise_wait(0.22, stop_callback): return
+        if precise_wait(0.22, stop_callback, True): return
 
-        # Cancel
         _press_scancode(w_code)
-        if precise_wait(0.015, stop_callback): _release_scancode(w_code); return
+        if precise_wait(0.015, stop_callback, True): _release_scancode(w_code); return
         _release_scancode(w_code)
 
-        # --- Skill 3 ---
         if s3:
             _press_scancode(s3)
-            if precise_wait(0.015, stop_callback): _release_scancode(s3); return
+            if precise_wait(0.015, stop_callback, True): _release_scancode(s3); return
             _release_scancode(s3)
             _press_scancode(w_code)
-            if precise_wait(0.015, stop_callback): _release_scancode(w_code); return
+            if precise_wait(0.015, stop_callback, True): _release_scancode(w_code); return
             _release_scancode(w_code)
 
-        precise_wait(0.05, stop_callback)
+        precise_wait(0.05, stop_callback, True)
 
     except Exception as e:
         logger.error(f"Archer35 Core Error: {e}")
@@ -247,10 +251,6 @@ def is_key_held(hex_code):
 
 @contextmanager
 def ghost_mode_action():
-    """
-    Mouse'u geçici olarak hedefe götürür, işlemi yapar ve geri getirir.
-    Geri dönmeden önce bekleme süresi eklendi (Stabilizasyon).
-    """
     orig_x, orig_y = get_cursor_pos()
     held_left = is_key_held(0x01) 
     try:
@@ -258,10 +258,6 @@ def ghost_mode_action():
         if held_left: _mouse_click(MOUSEEVENTF_LEFTUP)
         yield 
     finally:
-        # ÖNEMLİ DEĞİŞİKLİK:
-        # İşlem bittiğinde (yield bittiğinde), mouse hemen geri kaçmasın.
-        # Bu context manager'ı kullanan fonksiyonun içinde 'precise_wait' olsa bile,
-        # buradaki move işlemi çok kritik.
         hardware_move(orig_x, orig_y)
         if held_left: _mouse_click(MOUSEEVENTF_LEFTDOWN)
         _block_input(False)
@@ -270,52 +266,76 @@ def perform_shield_macro(x, y, user_delay):
     try:
         with ghost_mode_action():
             hardware_move(x, y)
-            precise_wait(0.02) # Hızlandırıldı
+            precise_wait(0.03, humanize=True) 
+            
             _mouse_click(MOUSEEVENTF_RIGHTDOWN)
-            precise_wait(0.02) # Hızlandırıldı
+            precise_wait(0.05, humanize=True) 
             _mouse_click(MOUSEEVENTF_RIGHTUP)
-            precise_wait(0.01) # Hızlandırıldı
+            
+            precise_wait(0.02, humanize=True) 
             session_stats.increment_shield()
     except: pass
 
+# --- YENİ MSS & OPENCV TARAMA MOTORU (TÜRKÇE KARAKTER FIX) ---
 def _perform_scan_logic(region, user_delay, image_target_path, log_tag):
     try:
         if not os.path.exists(image_target_path): return
-        needle_image = Image.open(image_target_path)
-        # confidence değerini biraz daha toleranslı yaptım (0.7 -> 0.75 veya sabit)
-        found_pos = pyautogui.locateOnScreen(needle_image, region=region, confidence=0.7, grayscale=True)
-        if found_pos:
-            target_x, target_y = pyautogui.center(found_pos)
+        
+        # region = (x, y, width, height)
+        # MSS için değerlerin INT olduğundan emin oluyoruz
+        monitor = {
+            "left": int(region[0]), 
+            "top": int(region[1]), 
+            "width": int(region[2]), 
+            "height": int(region[3])
+        }
+        
+        # MSS ile ışık hızında ekran görüntüsü al
+        with mss.mss() as sct:
+            img = np.array(sct.grab(monitor))
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
             
-            with ghost_mode_action():
-                hardware_move(int(target_x), int(target_y))
-                
-                # Hareket sonrası stabilizasyon (Süper Hızlı)
-                precise_wait(0.01)
-                
-                # --- 1. TIK (SOL) ---
-                _mouse_click(MOUSEEVENTF_LEFTDOWN)
-                precise_wait(0.02) 
-                _mouse_click(MOUSEEVENTF_LEFTUP)
-                
-                # İki tık arası (Optimize)
-                precise_wait(0.04) # 40ms -> 30ms'ye çekildi
-                
-                # --- 2. TIK (SOL) ---
-                _mouse_click(MOUSEEVENTF_LEFTDOWN)
-                precise_wait(0.02)
-                _mouse_click(MOUSEEVENTF_LEFTUP)
-                
-                # İstatistik
-                if log_tag == "SWORD": session_stats.increment_sword()
-                elif log_tag == "RESTORE": session_stats.increment_restore()
-                
-                # Mouse geri dönmeden önce oyunun algılaması için bekleme
-                # 0.05 -> 0.02 (Oyunun algılayabileceği en alt sınıra çekildi)
-                # Bu sayede mouse ikon üzerinde "asılı" kalmayacak.
-                precise_wait(0.02) 
-                
-    except: pass
+            # --- KRİTİK DÜZELTME: Unicode/Türkçe Karakter Okuma ---
+            # cv2.imread yerine bu yöntemi kullanarak "Masaüstü" gibi yolları okuyoruz.
+            with open(image_target_path, "rb") as f:
+                file_bytes = np.frombuffer(f.read(), dtype=np.uint8)
+                template = cv2.imdecode(file_bytes, cv2.IMREAD_GRAYSCALE)
+            
+            if template is None: return
+            
+            # OpenCV ile görüntü eşleştirme
+            res = cv2.matchTemplate(img_gray, template, cv2.TM_CCOEFF_NORMED)
+            threshold = 0.7 
+            loc = np.where(res >= threshold)
+            
+            if len(loc[0]) > 0:
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+                if max_val >= threshold:
+                    t_w, t_h = template.shape[::-1]
+                    # Koordinatları hesapla
+                    target_x = monitor["left"] + max_loc[0] + (t_w // 2)
+                    target_y = monitor["top"] + max_loc[1] + (t_h // 2)
+                    
+                    with ghost_mode_action():
+                        hardware_move(int(target_x), int(target_y))
+                        precise_wait(0.02, humanize=True)
+                        
+                        _mouse_click(MOUSEEVENTF_LEFTDOWN)
+                        precise_wait(0.05, humanize=True) # Low FPS Proof
+                        _mouse_click(MOUSEEVENTF_LEFTUP)
+                        
+                        precise_wait(0.05, humanize=True) 
+                        
+                        _mouse_click(MOUSEEVENTF_LEFTDOWN)
+                        precise_wait(0.05, humanize=True) # Low FPS Proof
+                        _mouse_click(MOUSEEVENTF_LEFTUP)
+                        
+                        if log_tag == "SWORD": session_stats.increment_sword()
+                        elif log_tag == "RESTORE": session_stats.increment_restore()
+                        
+                        precise_wait(0.02, humanize=True) 
+    except Exception as e:
+        logger.error(f"OpenCV Scan Error: {e}")
 
 def perform_sword_scan_macro(region, user_delay):
     _perform_scan_logic(region, user_delay, IMAGE_NAME, "SWORD")

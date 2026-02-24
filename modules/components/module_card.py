@@ -61,14 +61,15 @@ class ModuleCard(ctk.CTkFrame):
         self.icon_path = icon_path
         self.fallback_txt = fallback_txt
         
-        self.grid(row=0, column=col_index, padx=12, pady=10, sticky="nsew")
+        # Grid ayarlarında padx ve pady değerlerini azalttım (Daha kompakt)
+        self.grid(row=0, column=col_index, padx=8, pady=8, sticky="nsew")
         self._build_ui(extra_widget_callback)
         self._load_state() 
 
     def _build_ui(self, extra_callback):
-        # 1. Üst Başlık ve Toggle Alanı
+        # 1. Üst Başlık ve Toggle Alanı (Boşluklar daraltıldı)
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        header_frame.pack(fill="x", padx=15, pady=(15, 10))
+        header_frame.pack(fill="x", padx=10, pady=(10, 5))
 
         # Başlık ve İkon
         self._load_icon(header_frame)
@@ -80,21 +81,21 @@ class ModuleCard(ctk.CTkFrame):
             variable=self.switch_var, 
             onvalue="on", offvalue="off", 
             progress_color=COLORS["green_neon"], button_color="white",
-            button_hover_color="#EEEEEE", width=45, height=24,
+            button_hover_color="#EEEEEE", width=40, height=20, # Küçültüldü
             fg_color=COLORS["bg_input"]
         )
         self.switch.pack(side="right", anchor="ne")
 
-        # Ayırıcı Çizgi
-        ctk.CTkFrame(self, height=2, fg_color=COLORS["bg_input"]).pack(fill="x", padx=15, pady=5)
+        # Ayırıcı Çizgi (Daha ince ve az boşluklu)
+        ctk.CTkFrame(self, height=1, fg_color=COLORS["bg_input"]).pack(fill="x", padx=10, pady=2)
 
         # 2. Orta Alan: Ekstra Widgetlar
         if extra_callback:
             content_frame = ctk.CTkFrame(self, fg_color="transparent")
-            content_frame.pack(fill="both", expand=True, padx=15, pady=5)
+            content_frame.pack(fill="both", expand=True, padx=10, pady=2)
             extra_callback(content_frame)
 
-        # 3. Alt Kısım: SADECE TUŞ BUTONU (Gecikme kaldırıldı)
+        # 3. Alt Kısım: SADECE TUŞ BUTONU
         if self.module_key != "combo":
             self._build_footer_controls()
 
@@ -105,36 +106,35 @@ class ModuleCard(ctk.CTkFrame):
         if os.path.exists(self.icon_path):
             try:
                 pil_img = Image.open(self.icon_path).convert("RGBA")
-                self.icon_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(28, 28))
-                ctk.CTkLabel(left_box, text="", image=self.icon_image).pack(side="left", padx=(0, 8))
+                self.icon_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(24, 24)) # Küçültüldü
+                ctk.CTkLabel(left_box, text="", image=self.icon_image).pack(side="left", padx=(0, 6))
             except: pass
         else:
-            ctk.CTkLabel(left_box, text=self.fallback_txt[:1], font=(FONT_FAMILY[1], 20, "bold"), text_color=COLORS["accent"]).pack(side="left", padx=(0, 8))
+            ctk.CTkLabel(left_box, text=self.fallback_txt[:1], font=(FONT_FAMILY[1], 16, "bold"), text_color=COLORS["accent"]).pack(side="left", padx=(0, 6))
 
-        ctk.CTkLabel(left_box, text=self.title, font=("Segoe UI", 12, "bold"), text_color=COLORS["text_main"]).pack(side="left")
+        ctk.CTkLabel(left_box, text=self.title, font=("Segoe UI", 11, "bold"), text_color=COLORS["text_main"]).pack(side="left")
 
     def _build_footer_controls(self):
         footer = ctk.CTkFrame(self, fg_color="transparent")
-        footer.pack(side="bottom", fill="x", padx=15, pady=15)
+        footer.pack(side="bottom", fill="x", padx=10, pady=(2, 10))
 
-        # Tuş Butonu (Tam Genişlik)
+        # --- YENİ UX: Dinamik Buton Metni ---
         key_val = self.app.cfg.get(f"{self.module_key}_key", "").upper()
+        button_text = f"Buton Seç ({key_val})" if key_val else "Buton Seç"
+
         self.key_btn = ctk.CTkButton(
-            footer, text=f"[{key_val}]" if key_val else "[YOK]", 
-            height=32, font=("Consolas", 11, "bold"),
+            footer, text=button_text, 
+            height=28, font=("Consolas", 10, "bold"), # Küçültüldü
             fg_color=COLORS["bg_input"], hover_color=COLORS["bg_main"],
             border_width=1, border_color=COLORS["border"], 
             text_color=COLORS["text_dim"],
             command=self._listen_key
         )
-        # fill="x", expand=True ile butonu tüm footer'a yayıyoruz
         self.key_btn.pack(side="left", fill="x", expand=True) 
         CTkToolTip(self.key_btn, text="Kısayol tuşu atamak için tıkla")
         
-        # Referans Kaydı
+        # Referans Kaydı (ui.py içindeki _wait_key metodu bu referansı kullanacak)
         setattr(self.app, f"btn_{self.module_key}_key", self.key_btn)
-
-        # GECİKME KUTUSU (ENTRY) KALDIRILDI
 
     def _load_state(self):
         active_key = f"{self.module_key}_active"
@@ -152,5 +152,5 @@ class ModuleCard(ctk.CTkFrame):
         except: pass
 
     def _listen_key(self):
-        self.key_btn.configure(text="...", border_color=COLORS["accent"])
+        self.key_btn.configure(text="Dinleniyor...", border_color=COLORS["accent"])
         self.app.listen_for_key(self.module_key)

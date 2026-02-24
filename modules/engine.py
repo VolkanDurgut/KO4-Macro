@@ -91,17 +91,31 @@ class AutomationEngine:
             run_archer35_module(self.cfg)
 
             # E) Görüntü İşleme Modülleri (Sword & Restore)
-            # Önce alanı hesapla
+            # --- KRİTİK DÜZELTME: Ters seçimlerde ve Float durumlarında çökme engellendi ---
             region = None
             x1 = self.cfg.get("region_x1")
             y1 = self.cfg.get("region_y1")
             x2 = self.cfg.get("region_x2")
             y2 = self.cfg.get("region_y2")
             
-            if x1 is not None and x2 is not None:
-                w, h = x2 - x1, y2 - y1
-                if w > 0 and h > 0:
-                    region = (x1, y1, w, h)
+            if x1 is not None and x2 is not None and y1 is not None and y2 is not None:
+                try:
+                    # Değerleri tam sayıya çevir
+                    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                    
+                    # Kullanıcı ters çizse bile sol üst noktayı otomatik bul (min)
+                    left = min(x1, x2)
+                    top = min(y1, y2)
+                    
+                    # Mutlak değer ile (abs) genişlik ve yüksekliği daima pozitif al
+                    w = abs(x2 - x1)
+                    h = abs(y2 - y1)
+                    
+                    # Yanlışlıkla tıklama (1-2 piksellik alanlar) ihtimaline karşı ufak bir sınır
+                    if w > 5 and h > 5:
+                        region = (left, top, w, h)
+                except Exception as e:
+                    logger.error(f"Region Parse Hatası: {e}")
 
             if region:
                 run_sword_module(self.cfg, region)

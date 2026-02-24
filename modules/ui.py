@@ -123,7 +123,6 @@ class MacroApp(ctk.CTk):
         main = ctk.CTkFrame(self, fg_color=COLORS["bg_main"], corner_radius=0)
         main.grid(row=0, column=1, sticky="nsew")
         
-        # Container
         container = ctk.CTkFrame(main, fg_color="transparent")
         container.pack(fill="both", expand=True, padx=30, pady=30)
 
@@ -140,29 +139,25 @@ class MacroApp(ctk.CTk):
         )
         self.status_badge.pack(side="right")
 
-        # 2. Modül Grid (2 SATIRLI YAPI)
+        # --- YENİ UX DİZİLİMİ: Kartlar boylarına göre gruplandı ---
         
-        # --- SATIR 1 ---
+        # SATIR 1: KISA KARTLAR (Atak, Kalkan, Yaşam)
         row1_frame = ctk.CTkFrame(container, fg_color="transparent")
         row1_frame.pack(fill="x", pady=(0, 15))
-        row1_frame.grid_columnconfigure((0,1,2,3), weight=1)
+        row1_frame.grid_columnconfigure((0,1,2), weight=1)
 
         ModuleCard(row1_frame, self, "sword", "ATAK", IMAGE_NAME, "⚔", self._setup_sword_extras, 0)
         ModuleCard(row1_frame, self, "shield", "KALKAN", SHIELD_IMAGE_NAME, "🛡", self._setup_shield_extras, 1)
         ModuleCard(row1_frame, self, "restore", "YAŞAM", RESTORE_IMAGE_NAME, "❤️", self._setup_restore_extras, 2)
-        ModuleCard(row1_frame, self, "combo", "KOMBO", ATTACK_IMAGE_NAME, "⚡", self._setup_combo_extras, 3)
 
-        # --- SATIR 2 ---
+        # SATIR 2: UZUN KARTLAR (Mage, Okçu, Kombo)
         row2_frame = ctk.CTkFrame(container, fg_color="transparent")
         row2_frame.pack(fill="x")
-        row2_frame.grid_columnconfigure((0,1,2,3), weight=1)
+        row2_frame.grid_columnconfigure((0,1,2), weight=1)
 
         ModuleCard(row2_frame, self, "mage56", "MAGE 56", "", "🔥", self._setup_mage56_extras, 0)
         ModuleCard(row2_frame, self, "archer35", "OKÇU 3-5", ARROWS_IMAGE_NAME, "🏹", self._setup_archer35_extras, 1)
-        
-        # Boşluk doldurmak için görünmez bir frame (Dengelemek için)
-        ctk.CTkFrame(row2_frame, fg_color="transparent").grid(row=0, column=2, sticky="nsew", padx=5)
-        ctk.CTkFrame(row2_frame, fg_color="transparent").grid(row=0, column=3, sticky="nsew", padx=5)
+        ModuleCard(row2_frame, self, "combo", "KOMBO", ATTACK_IMAGE_NAME, "⚡", self._setup_combo_extras, 2)
 
         # 3. Alt Panel
         bottom_panel = ctk.CTkFrame(container, fg_color="transparent")
@@ -207,17 +202,26 @@ class MacroApp(ctk.CTk):
     # --- MODÜL ARAYÜZLERİ (KART İÇERİKLERİ) ---
     def _setup_combo_extras(self, parent):
         ctk.CTkLabel(parent, text="Sıralama:", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
-        self.entry_combo_seq = ctk.CTkEntry(parent, width=140, height=28, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"])
-        self.entry_combo_seq.pack(pady=2)
+        
+        seq_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        seq_frame.pack(pady=2, fill="x")
+        
+        self.entry_combo_seq = ctk.CTkEntry(seq_frame, width=90, height=26, font=("Consolas", 11), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"])
+        self.entry_combo_seq.pack(side="left", padx=(0,5))
         self.entry_combo_seq.insert(0, self.cfg.get("combo_sequence", "R-R-2"))
-        self.entry_combo_seq.bind("<KeyRelease>", lambda e: self.cfg.set("combo_sequence", self.entry_combo_seq.get()))
+        
+        ctk.CTkButton(
+            seq_frame, text="Kaydet", width=40, height=26,
+            fg_color=COLORS["bg_input"], hover_color=COLORS["btn_hover"], border_width=1, border_color=COLORS["border_dim"],
+            command=lambda: [self.cfg.set("combo_sequence", self.entry_combo_seq.get()), self.focus()]
+        ).pack(side="left")
 
         ctk.CTkLabel(parent, text="Hız:", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(8,0))
-        self.entry_combo_val = ctk.CTkEntry(parent, width=140, height=28, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"])
+        self.entry_combo_val = ctk.CTkEntry(parent, width=140, height=26, font=("Consolas", 11), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"])
         self.entry_combo_val.pack(pady=2)
         
         self.seg_unit = ctk.CTkSegmentedButton(
-            parent, values=["MS", "SN", "DK"], width=140, height=24,
+            parent, values=["MS", "SN", "DK"], width=140, height=22,
             selected_color=COLORS["accent_primary"], selected_hover_color=COLORS["accent_hover"],
             font=("Arial", 9, "bold"), command=self._on_combo_unit_change
         )
@@ -247,28 +251,36 @@ class MacroApp(ctk.CTk):
         except: pass
 
     def _setup_mage56_extras(self, parent):
-        ctk.CTkLabel(parent, text="Skill Tuşu (Örn: 2)", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
-        self.entry_mage56_skill = ctk.CTkEntry(parent, width=100, height=28, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
-        self.entry_mage56_skill.pack(pady=2)
+        row1 = ctk.CTkFrame(parent, fg_color="transparent")
+        row1.pack(fill="x", pady=(5, 5))
+        ctk.CTkLabel(row1, text="Skill Tuşu (Örn: 2):", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(side="left")
+        self.entry_mage56_skill = ctk.CTkEntry(row1, width=60, height=26, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
+        self.entry_mage56_skill.pack(side="right")
         self.entry_mage56_skill.insert(0, self.cfg.get("mage56_skill_key", "2"))
         self.entry_mage56_skill.bind("<KeyRelease>", lambda e: self.cfg.set("mage56_skill_key", self.entry_mage56_skill.get()))
 
-        ctk.CTkLabel(parent, text="Staff (R) Tuşu", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(10,0))
-        self.entry_mage56_r = ctk.CTkEntry(parent, width=100, height=28, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
-        self.entry_mage56_r.pack(pady=2)
+        row2 = ctk.CTkFrame(parent, fg_color="transparent")
+        row2.pack(fill="x", pady=(0, 5))
+        ctk.CTkLabel(row2, text="Staff (R) Tuşu:", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(side="left")
+        self.entry_mage56_r = ctk.CTkEntry(row2, width=60, height=26, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
+        self.entry_mage56_r.pack(side="right")
         self.entry_mage56_r.insert(0, self.cfg.get("mage56_r_key", "r"))
         self.entry_mage56_r.bind("<KeyRelease>", lambda e: self.cfg.set("mage56_r_key", self.entry_mage56_r.get()))
 
     def _setup_archer35_extras(self, parent):
-        ctk.CTkLabel(parent, text="5'lü OK (Örn: 3)", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
-        self.entry_arch35_s1 = ctk.CTkEntry(parent, width=80, height=24, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
-        self.entry_arch35_s1.pack(pady=2)
+        row1 = ctk.CTkFrame(parent, fg_color="transparent")
+        row1.pack(fill="x", pady=(5, 5))
+        ctk.CTkLabel(row1, text="5'li OK (Örn: 3):", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(side="left")
+        self.entry_arch35_s1 = ctk.CTkEntry(row1, width=60, height=26, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
+        self.entry_arch35_s1.pack(side="right")
         self.entry_arch35_s1.insert(0, self.cfg.get("archer35_skill1_key", "3"))
         self.entry_arch35_s1.bind("<KeyRelease>", lambda e: self.cfg.set("archer35_skill1_key", self.entry_arch35_s1.get()))
 
-        ctk.CTkLabel(parent, text="3'li OK (Örn: 4)", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
-        self.entry_arch35_s2 = ctk.CTkEntry(parent, width=80, height=24, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
-        self.entry_arch35_s2.pack(pady=2)
+        row2 = ctk.CTkFrame(parent, fg_color="transparent")
+        row2.pack(fill="x", pady=(0, 5))
+        ctk.CTkLabel(row2, text="3'lü OK (Örn: 4):", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(side="left")
+        self.entry_arch35_s2 = ctk.CTkEntry(row2, width=60, height=26, font=("Consolas", 12), fg_color=COLORS["bg_input"], border_width=1, border_color=COLORS["border_dim"], justify="center")
+        self.entry_arch35_s2.pack(side="right")
         self.entry_arch35_s2.insert(0, self.cfg.get("archer35_skill2_key", "4"))
         self.entry_arch35_s2.bind("<KeyRelease>", lambda e: self.cfg.set("archer35_skill2_key", self.entry_arch35_s2.get()))
         
@@ -277,13 +289,15 @@ class MacroApp(ctk.CTk):
                       border_width=1, border_color=COLORS["border_dim"], command=self.open_snipping_tool).pack(pady=10)
     
     def _setup_shield_extras(self, p):
-        ctk.CTkButton(p, text="KONUM ÖĞRET", height=25, fg_color=COLORS["bg_input"], hover_color=COLORS["btn_hover"], 
-                      border_width=1, border_color=COLORS["border_dim"], command=lambda: self.pick_coord("shield")).pack(pady=10)
+        self.btn_shield_learn = ctk.CTkButton(p, text="KONUM ÖĞRET", height=25, fg_color=COLORS["bg_input"], hover_color=COLORS["btn_hover"], 
+                      border_width=1, border_color=COLORS["border_dim"], command=lambda: self.pick_coord("shield"))
+        self.btn_shield_learn.pack(pady=10)
         self.entry_shield_x = ctk.CTkEntry(p, width=0, height=0); self.entry_shield_x.insert(0, self.cfg.get("shield_x"))
         self.entry_shield_y = ctk.CTkEntry(p, width=0, height=0); self.entry_shield_y.insert(0, self.cfg.get("shield_y"))
 
     def _setup_restore_extras(self, p): 
-        ctk.CTkLabel(p, text="Otomatik Entegrasyon", font=("Consolas", 9), text_color=COLORS["text_dim"]).pack(pady=15)
+        ctk.CTkButton(p, text="ALAN SEÇ", height=25, fg_color=COLORS["bg_input"], hover_color=COLORS["btn_hover"], 
+                      border_width=1, border_color=COLORS["border_dim"], command=self.open_snipping_tool).pack(pady=10)
 
     def sync_ui_state(self):
         try:
@@ -303,19 +317,29 @@ class MacroApp(ctk.CTk):
         self.show_toast("BAŞARILI", "Tarama alanı güncellendi.", "success")
 
     def pick_coord(self, target):
-        self.status_badge.configure(text="MOD: ÖĞRENME", text_color=COLORS["yellow_neon"], border_color=COLORS["yellow_neon"])
-        self.update(); time.sleep(3)
-        x, y = pydirectinput.position()
         if target == "shield":
-            self.entry_shield_x.delete(0, tk.END); self.entry_shield_x.insert(0, x)
-            self.entry_shield_y.delete(0, tk.END); self.entry_shield_y.insert(0, y)
-            self.cfg.set("shield_x", x, False); self.cfg.set("shield_y", y, True)
-        self.show_toast("KAYDEDİLDİ", f"Koordinat: {x}x{y}", "success")
-        self.after(1500, lambda: self.status_badge.configure(text="SİSTEM HAZIR", text_color=COLORS["text_dim"], border_color=COLORS["border_dim"]))
+            self.show_toast("BİLGİ", "Fareyi oyun içindeki kalkanın üzerine götürün...", "warning")
+            self.status_badge.configure(text="MOD: ÖĞRENME", text_color=COLORS["yellow_neon"], border_color=COLORS["yellow_neon"])
+            
+            def countdown(step):
+                if step > 0:
+                    self.btn_shield_learn.configure(text=f"BEKLEYİN ({step})", fg_color=COLORS["yellow_neon"], text_color="black")
+                    self.after(1000, countdown, step - 1)
+                else:
+                    x, y = pydirectinput.position()
+                    self.entry_shield_x.delete(0, tk.END); self.entry_shield_x.insert(0, x)
+                    self.entry_shield_y.delete(0, tk.END); self.entry_shield_y.insert(0, y)
+                    self.cfg.set("shield_x", x, False); self.cfg.set("shield_y", y, True)
+                    
+                    self.btn_shield_learn.configure(text="KONUM ÖĞRET", fg_color=COLORS["bg_input"], text_color=COLORS["text_main"])
+                    self.show_toast("KAYDEDİLDİ", f"Kalkan Koordinatı: {x}x{y}", "success")
+                    self.status_badge.configure(text="SİSTEM HAZIR", text_color=COLORS["text_dim"], border_color=COLORS["border_dim"])
+            
+            countdown(3)
 
     def listen_for_key(self, target):
         btn = getattr(self, f"btn_{target}_key")
-        btn.configure(text="...", fg_color=COLORS["bg_input"], border_color=COLORS["border_focus"])
+        btn.configure(text="Dinleniyor...", fg_color=COLORS["bg_input"], border_color=COLORS["border_focus"])
         threading.Thread(target=self._wait_key, args=(target,), daemon=True).start()
 
     def _wait_key(self, target):
@@ -323,7 +347,11 @@ class MacroApp(ctk.CTk):
             event = keyboard.read_event()
             if event.event_type == keyboard.KEY_DOWN and event.name not in ['esc', 'enter']:
                 self.cfg.set(f"{target}_key", event.name)
-                getattr(self, f"btn_{target}_key").configure(text=f"[{event.name.upper()}]", fg_color=COLORS["bg_input"], border_color=COLORS["border_dim"])
+                getattr(self, f"btn_{target}_key").configure(
+                    text=f"Buton Seç ({event.name.upper()})", 
+                    fg_color=COLORS["bg_input"], 
+                    border_color=COLORS["border_dim"]
+                )
         except: pass
 
     def run_preflight_checks(self):
@@ -335,14 +363,18 @@ class MacroApp(ctk.CTk):
         return True
 
     def _security_watchdog(self):
+        """Arka planda lisansın/oturumun devam edip etmediğini kontrol eder."""
         while self.alive:
-            time.sleep(45) 
+            time.sleep(30) # 30 saniyede bir kontrol (Anında düşmesi için süre kısaltıldı)
             if not self.alive: break
             try:
-                if not self.auth_api.check().get("success", False):
-                    self.after(0, lambda: self.trigger_security_lockdown("Oturum süresi doldu."))
+                res = self.auth_api.check()
+                if not res.get("success", False):
+                    msg = res.get("message", "Lisans süresi doldu veya oturum sonlandı.")
+                    self.after(0, lambda m=msg: self.trigger_security_lockdown(m))
                     break
-            except: pass
+            except Exception as e:
+                pass
 
     def check_server_announcement(self):
         try:
@@ -352,15 +384,17 @@ class MacroApp(ctk.CTk):
         except: pass
 
     def trigger_security_lockdown(self, reason):
+        """Güvenlik ihlali veya süre bitiminde sistemi anında kilitler ve atar."""
         self.engine.stop() 
-        self.show_toast("GÜVENLİK", reason, type="error") 
-        self.after(4000, self.on_closing)
+        
+        # Süresi biten anahtarı sil ki program bir dahaki açılışta auto-login denemesin
+        try:
+            if os.path.exists(LICENSE_FILE):
+                os.remove(LICENSE_FILE)
+        except: pass
 
-    def show_toast(self, title, message, type="success"):
-        if type == "error": color_key = "red_error"
-        elif type == "warning": color_key = "yellow_neon"
-        else: color_key = "cyan_neon" 
-        ToastNotification(self, title, message, color_key)
+        self.show_toast("GÜVENLİK UYARISI", reason, type="error") 
+        self.after(3000, self.on_closing) # 3 saniye mesajı gösterip uygulamayı kapatır
     
     def open_settings(self): SettingsWindow(self)
 

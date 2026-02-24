@@ -1,46 +1,43 @@
 # modules/login.py
 import customtkinter as ctk
 from tkinter import messagebox
-from PIL import Image # Görselleri güvenli yüklemek için eklendi
+from PIL import Image 
 import webbrowser
 import os
 import threading
-import subprocess 
+import subprocess
+import winreg # EKLENDİ: Registry'den güvenli HWID okumak için
 from .keyauth import api
 from .constants import COLORS, LOGO_NAME, ICON_NAME, VERSION, LICENSE_FILE
 
 # --- KEYAUTH AYARLARI ---
-# DİKKAT: Bu bilgiler KeyAuth panelinizdekiyle BİREBİR aynı olmalı.
-APP_NAME = "ScuderiaFerrari" # Paneldeki Application Name
-OWNER_ID = "tFrtYO894n"      # Paneldeki Owner ID
-SECRET = "8bf72b6bc09a90ced8c1b942b8139a7a1e0cccb0eedfab1eff8c852c8a102897" # Paneldeki Secret
-KEYAUTH_VERSION = f"v{VERSION}" 
+APP_NAME = "ScuderiaFerrari" 
+OWNER_ID = "tFrtYO894n"      
+SECRET = "8bf72b6bc09a90ced8c1b942b8139a7a1e0cccb0eedfab1eff8c852c8a102897" 
+
+# [FIX] VERSION değişkeni zaten "v9.3" içeriyor.
+KEYAUTH_VERSION = VERSION 
 
 SHOPIER_URL = "https://www.shopier.com/SeninMagazan" 
 
-# --- HWID ALMA FONKSİYONU (GÜVENLİ) ---
+# --- HWID ALMA FONKSİYONU (YENİ & GÜVENLİ) ---
 def get_hwid():
     """
-    Bilgisayarın benzersiz donanım kimliğini alır.
-    Hata durumunda programı çökertmez, 'Unknown' döner.
+    Bilgisayarın benzersiz donanım kimliğini (MachineGuid) Registry'den alır.
+    WMIC yönteminden çok daha hızlıdır, CMD penceresi açmaz ve Windows 11'de çökmez.
     """
     try:
-        if os.name == 'nt':
-            cmd = 'wmic csproduct get uuid'
-            # creationflags=0x08000000 -> Konsol penceresi açılmasını engeller
-            output = subprocess.check_output(cmd, shell=True, creationflags=0x08000000).decode()
+        # Registry yolu: HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography
+        key_path = r"SOFTWARE\Microsoft\Cryptography"
+        
+        # Anahtarı aç (KEY_WOW64_64KEY flag'i 64-bit sistemlerde doğru okuma sağlar)
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+            guid, _ = winreg.QueryValueEx(key, "MachineGuid")
+            return guid
             
-            # Gelen veriyi satır satır ayır ve temizle
-            lines = [line.strip() for line in output.split('\n') if line.strip()]
-            
-            # Genelde 2. satır UUID olur (1. satır başlıktır)
-            if len(lines) > 1:
-                return lines[1]
-            return "Unknown-UUID-Format"
-        else:
-            return "Non-Windows-HWID"
     except Exception as e:
-        print(f"HWID Okuma Hatası: {e}")
+        print(f"HWID (Registry) Okuma Hatası: {e}")
+        # Eğer Registry de başarısız olursa (Çok nadir), hata dön.
         return "Unknown-HWID-Error"
 
 class LoginApp(ctk.CTk):
@@ -49,23 +46,21 @@ class LoginApp(ctk.CTk):
         self.on_success = on_success_callback
         
         # Pencere Ayarları
-        self.title(f"KO4 TAKTİKSEL ERİŞİM - v{VERSION}")
+        self.title(f"KO4 TAKTİKSEL ERİŞİM - {VERSION}")
         self.geometry("400x550")
         self.resizable(False, False)
         
         ctk.set_appearance_mode("Dark")
         self.configure(fg_color=COLORS["bg_main"]) 
         
-        # Pencere İkonu (Varsa)
         if os.path.exists(ICON_NAME): 
             try: self.iconbitmap(ICON_NAME)
             except: pass
             
-        # KeyAuth Başlatma (Güvenli Blok)
+        # KeyAuth Başlatma
         try:
             self.auth = api(APP_NAME, OWNER_ID, SECRET, KEYAUTH_VERSION, "")
         except Exception as e:
-            # keyauth.py içindeki hatayı yakalar ve kullanıcıya gösterir
             messagebox.showerror("Sunucu Hatası", f"Güvenlik sunucusuna bağlanılamadı.\nDetay: {e}")
             self.destroy()
             return
@@ -78,10 +73,8 @@ class LoginApp(ctk.CTk):
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
         header_frame.pack(pady=(40, 20))
 
-        # Logo Yükleme (EXE Uyumlu - PIL ile)
         if os.path.exists(LOGO_NAME):
             try:
-                # GÜNCELLEME: Image.open kullanımı (PyInstaller dostu)
                 pil_img = Image.open(LOGO_NAME)
                 ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(60, 60))
                 ctk.CTkLabel(header_frame, text="", image=ctk_img).pack(pady=(0, 10))
@@ -168,10 +161,15 @@ class LoginApp(ctk.CTk):
         self.status.pack(side="bottom", pady=15)
 
     def load_saved_key(self):
-        """Kaydedilmiş lisansı AppData klasöründen yükler."""
+        """Kayıtlı lisansı okur ve otomatik girişi tetikler."""
         if os.path.exists(LICENSE_FILE):
             try:
-                with open(LICENSE_FILE, "r") as f: self.entry_key.insert(0, f.read().strip())
+                with open(LICENSE_FILE, "r") as f: 
+                    saved_key = f.read().strip()
+                    if saved_key:
+                        self.entry_key.insert(0, saved_key)
+                        # Yarım saniye sonra otomatik girişi başlat
+                        self.after(500, self.start_login)
             except: pass
 
     def start_login(self):
@@ -181,7 +179,6 @@ class LoginApp(ctk.CTk):
             return
             
         self.btn_login.configure(state="disabled", text="DOĞRULANIYOR...")
-        # Arayüz donmasın diye işlemi thread'e alıyoruz
         threading.Thread(target=self.process_login, args=(key,), daemon=True).start()
 
     def process_login(self, key):
@@ -191,25 +188,22 @@ class LoginApp(ctk.CTk):
         result = self.auth.license(key, hwid=hwid)
         
         if result["success"]:
-            # Başarılı ise anahtarı kaydet
             try:
                 with open(LICENSE_FILE, "w") as f: f.write(key)
             except Exception as e:
                 print(f"Lisans kaydetme hatası: {e}")
 
             self.status.configure(text="ERİŞİM ONAYLANDI", text_color=COLORS["success"])
-            # 1 saniye sonra ana uygulamayı aç
             self.after(1000, self.finish)
         else:
             self.btn_login.configure(state="normal", text="GİRİŞ YAP")
             
-            # Hata mesajını analiz et ve Türkçeleştir
             msg = result.get("message", "Bilinmeyen Hata")
             if "hwid" in msg.lower(): msg = "GÜVENLİK UYARISI: DONANIM UYUŞMAZLIĞI"
             elif "invalid" in msg.lower(): msg = "HATA: GEÇERSİZ LİSANS ANAHTARI"
             elif "expired" in msg.lower(): msg = "HATA: LİSANS SÜRESİ DOLMUŞ"
             elif "used" in msg.lower(): msg = "HATA: LİSANS BAŞKA CİHAZDA AKTİF"
-            elif "not found" in msg.lower(): msg = f"SÜRÜM HATASI: Güncelleme Gerekli (v{VERSION})"
+            elif "not found" in msg.lower(): msg = f"SÜRÜM HATASI: Güncelleme Gerekli ({VERSION})"
             
             self.status.configure(text=msg, text_color=COLORS["danger"])
 
@@ -218,5 +212,5 @@ class LoginApp(ctk.CTk):
         webbrowser.open(SHOPIER_URL)
     
     def finish(self):
-        self.destroy() # Login penceresini yok et
-        self.on_success(self.auth) # Main.py içindeki callback'i tetikle
+        self.destroy() 
+        self.on_success(self.auth)
