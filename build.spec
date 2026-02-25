@@ -29,24 +29,27 @@ if os.path.exists(OBF_DIST):
 # 3. CustomTkinter Verilerini Topla
 datas = collect_data_files('customtkinter')
 
-# 4. Varlıkları Ekle (BURASI GÜNCELLENDİ)
+# 4. Varlıkları Ekle
 datas += [
     ('sword.png', '.'),
     ('shield.png', '.'),
     ('restore.png', '.'),
     ('logo.png', '.'),
     ('icon.ico', '.'),
-    ('arrows.png', '.'), # Okçu Modülü Görseli
-    ('attack.png', '.')  # <--- YENİ: Kombo Modülü Görseli
+    ('arrows.png', '.'), 
+    ('attack.png', '.')
 ]
 
-# 5. Gizli Importlar
+# 5. Gizli Importlar (YENİ KÜTÜPHANELER EKLENDİ)
 hiddenimports = [
     'PIL._tkinter_finder',
     'pydirectinput',
     'pyautogui',
     'keyboard',
     'requests',
+    'mss',          # <--- EKLENDİ (Ekran Yakalama)
+    'cv2',          # <--- EKLENDİ (OpenCV Görüntü İşleme)
+    'numpy',        # <--- EKLENDİ (Matematiksel İşlemler)
     'ctypes',
     'threading',
     'json',
@@ -62,8 +65,8 @@ hiddenimports = [
     'modules.components.error_window',
     'modules.components.announcement',
     'modules.components.module_card',
-    'modules.features.mage56',   # Mage Modülü
-    'modules.features.archer35'  # Okçu Modülü
+    'modules.features.mage56',   
+    'modules.features.archer35'  
 ]
 
 if runtime_pkg_name:
