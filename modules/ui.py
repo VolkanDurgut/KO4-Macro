@@ -10,6 +10,7 @@ import os
 import sys
 import math
 import logging
+import ctypes 
 from datetime import datetime
 
 # Bileşenler
@@ -25,6 +26,16 @@ from .snipping import SnippingTool
 from .config_manager import ConfigManager 
 
 logger = logging.getLogger(__name__)
+
+# --- WINDOWS API FARE KONTROLÜ ---
+class POINT(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+def get_mouse_pos():
+    """Windows API kullanarak farenin anlık X,Y koordinatlarını okur."""
+    pt = POINT()
+    ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
+    return pt.x, pt.y
 
 class SidebarButton(ctk.CTkButton):
     """Sol menü için özel stil butonu"""
@@ -53,7 +64,6 @@ class MacroApp(ctk.CTk):
         self._init_window()
         self._init_system_threads()
         
-        # UI Oluşturma
         self.create_layout()
         
         self.pulse_step = 0
@@ -70,7 +80,6 @@ class MacroApp(ctk.CTk):
         ctk.set_appearance_mode("Dark")
         self.configure(fg_color=COLORS["bg_main"])
         
-        # Grid: Sol Sidebar (0) - Sağ İçerik (1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
@@ -82,7 +91,6 @@ class MacroApp(ctk.CTk):
         self.updater = AutoUpdater(VERSION, self)
         self.updater.check_for_updates()
         
-        # Key Listener Flags
         self.listening_key_shield = False
         self.listening_key_sword = False
         self.listening_key_restore = False
@@ -96,7 +104,6 @@ class MacroApp(ctk.CTk):
         sidebar.grid(row=0, column=0, sticky="nsew")
         sidebar.grid_rowconfigure(4, weight=1)
 
-        # Logo
         if os.path.exists(LOGO_NAME):
             try:
                 pil_img = Image.open(LOGO_NAME)
@@ -106,10 +113,8 @@ class MacroApp(ctk.CTk):
         else:
             ctk.CTkLabel(sidebar, text=APP_TITLE, font=("Arial Black", 24), text_color="white").pack(pady=(40, 30))
 
-        # Navigasyon
         SidebarButton(sidebar, "KONTROL PANELİ", "⚡", lambda: None, True).pack(fill="x", padx=15, pady=5)
         
-        # Alt Bilgi
         footer = ctk.CTkFrame(sidebar, fg_color="transparent")
         footer.pack(side="bottom", pady=20, padx=20, fill="x")
         ctk.CTkLabel(footer, text=f"CORE: v{VERSION}", font=("Consolas", 10), text_color=COLORS["text_dim"]).pack(anchor="w")
@@ -126,7 +131,6 @@ class MacroApp(ctk.CTk):
         container = ctk.CTkFrame(main, fg_color="transparent")
         container.pack(fill="both", expand=True, padx=30, pady=30)
 
-        # 1. Header
         header = ctk.CTkFrame(container, fg_color="transparent")
         header.pack(fill="x", pady=(0, 20))
         
@@ -139,9 +143,6 @@ class MacroApp(ctk.CTk):
         )
         self.status_badge.pack(side="right")
 
-        # --- YENİ UX DİZİLİMİ: Kartlar boylarına göre gruplandı ---
-        
-        # SATIR 1: KISA KARTLAR (Atak, Kalkan, Yaşam)
         row1_frame = ctk.CTkFrame(container, fg_color="transparent")
         row1_frame.pack(fill="x", pady=(0, 15))
         row1_frame.grid_columnconfigure((0,1,2), weight=1)
@@ -150,7 +151,6 @@ class MacroApp(ctk.CTk):
         ModuleCard(row1_frame, self, "shield", "KALKAN", SHIELD_IMAGE_NAME, "🛡", self._setup_shield_extras, 1)
         ModuleCard(row1_frame, self, "restore", "YAŞAM", RESTORE_IMAGE_NAME, "❤️", self._setup_restore_extras, 2)
 
-        # SATIR 2: UZUN KARTLAR (Mage, Okçu, Kombo)
         row2_frame = ctk.CTkFrame(container, fg_color="transparent")
         row2_frame.pack(fill="x")
         row2_frame.grid_columnconfigure((0,1,2), weight=1)
@@ -159,18 +159,18 @@ class MacroApp(ctk.CTk):
         ModuleCard(row2_frame, self, "archer35", "OKÇU 3-5", ARROWS_IMAGE_NAME, "🏹", self._setup_archer35_extras, 1)
         ModuleCard(row2_frame, self, "combo", "KOMBO", ATTACK_IMAGE_NAME, "⚡", self._setup_combo_extras, 2)
 
-        # 3. Alt Panel
         bottom_panel = ctk.CTkFrame(container, fg_color="transparent")
         bottom_panel.pack(fill="x", side="bottom", pady=20) 
 
         self.btn_toggle = ctk.CTkButton(
-            bottom_panel, text="SİSTEMİ BAŞLAT", font=("Arial", 14, "bold"), height=60,
-            fg_color=COLORS["accent_primary"], text_color="#000000",
-            hover_color=COLORS["accent_hover"], command=self.toggle_macro
+            bottom_panel, text="SAVAŞ MOTORUNU BAŞLAT", font=("Consolas", 14, "bold"), 
+            width=280, height=45, corner_radius=4,
+            fg_color="transparent", border_width=1, border_color=COLORS["accent_dim"],
+            text_color=COLORS["text_main"], hover_color=COLORS["bg_panel"],
+            command=self.toggle_macro
         )
-        self.btn_toggle.pack(fill="x")
+        self.btn_toggle.pack(pady=10)
 
-    # --- YARDIMCI METOTLAR ---
     def log_to_console(self, message):
         pass
 
@@ -188,18 +188,28 @@ class MacroApp(ctk.CTk):
     def animate_heartbeat(self):
         if not self.alive: return
         if self.engine.is_running:
-            pulse = (math.sin(self.pulse_step / 8) + 1) / 2 
-            color = self.interpolate_color(COLORS["accent_primary"], COLORS["green_neon"], pulse)
-            self.btn_toggle.configure(fg_color=color, text="SİSTEM ÇALIŞIYOR (DURDUR)", text_color="black")
+            pulse = (math.sin(self.pulse_step / 5.0) + 1) / 2 
+            color = self.interpolate_color(COLORS["bg_main"], COLORS["green_neon"], pulse)
+            
+            self.btn_toggle.configure(
+                border_color=color, 
+                text="MOTOR DEVREDE (DURDUR)", 
+                text_color=COLORS["green_neon"],
+                fg_color="transparent"
+            )
             self.status_badge.configure(text="SİSTEM AKTİF", text_color=COLORS["cyan_neon"], border_color=COLORS["cyan_neon"])
             self.pulse_step += 1
         else:
-            self.btn_toggle.configure(fg_color=COLORS["accent_primary"], text="SİSTEMİ BAŞLAT", text_color="black")
+            self.btn_toggle.configure(
+                border_color=COLORS["accent_dim"], 
+                text="SAVAŞ MOTORUNU BAŞLAT", 
+                text_color=COLORS["text_main"],
+                fg_color="transparent"
+            )
             if self.pulse_step != 0: 
                  self.status_badge.configure(text="SİSTEM HAZIR", text_color=COLORS["text_dim"], border_color=COLORS["border_dim"])
         self.after(50, self.animate_heartbeat)
 
-    # --- MODÜL ARAYÜZLERİ (KART İÇERİKLERİ) ---
     def _setup_combo_extras(self, parent):
         ctk.CTkLabel(parent, text="Sıralama:", font=("Arial", 10, "bold"), text_color=COLORS["text_dim"]).pack(pady=(5,0))
         
@@ -318,15 +328,20 @@ class MacroApp(ctk.CTk):
 
     def pick_coord(self, target):
         if target == "shield":
-            self.show_toast("BİLGİ", "Fareyi oyun içindeki kalkanın üzerine götürün...", "warning")
+            self.show_toast("BİLGİ", "Fareyi kalkanın üzerine götür ve klavyeden CTRL tuşuna bas.", "warning")
             self.status_badge.configure(text="MOD: ÖĞRENME", text_color=COLORS["yellow_neon"], border_color=COLORS["yellow_neon"])
+            self.btn_shield_learn.configure(text="CTRL BEKLENİYOR...", fg_color=COLORS["yellow_neon"], text_color="black")
             
-            def countdown(step):
-                if step > 0:
-                    self.btn_shield_learn.configure(text=f"BEKLEYİN ({step})", fg_color=COLORS["yellow_neon"], text_color="black")
-                    self.after(1000, countdown, step - 1)
-                else:
-                    x, y = pydirectinput.position()
+            def wait_for_key():
+                time.sleep(0.3)
+                while getattr(self, "alive", True):
+                    if keyboard.is_pressed('ctrl'):
+                        break
+                    time.sleep(0.01)
+                
+                x, y = get_mouse_pos()
+                
+                def update_ui():
                     self.entry_shield_x.delete(0, tk.END); self.entry_shield_x.insert(0, x)
                     self.entry_shield_y.delete(0, tk.END); self.entry_shield_y.insert(0, y)
                     self.cfg.set("shield_x", x, False); self.cfg.set("shield_y", y, True)
@@ -334,8 +349,10 @@ class MacroApp(ctk.CTk):
                     self.btn_shield_learn.configure(text="KONUM ÖĞRET", fg_color=COLORS["bg_input"], text_color=COLORS["text_main"])
                     self.show_toast("KAYDEDİLDİ", f"Kalkan Koordinatı: {x}x{y}", "success")
                     self.status_badge.configure(text="SİSTEM HAZIR", text_color=COLORS["text_dim"], border_color=COLORS["border_dim"])
-            
-            countdown(3)
+                
+                self.after(0, update_ui)
+                
+            threading.Thread(target=wait_for_key, daemon=True).start()
 
     def listen_for_key(self, target):
         btn = getattr(self, f"btn_{target}_key")
@@ -363,9 +380,8 @@ class MacroApp(ctk.CTk):
         return True
 
     def _security_watchdog(self):
-        """Arka planda lisansın/oturumun devam edip etmediğini kontrol eder."""
         while self.alive:
-            time.sleep(30) # 30 saniyede bir kontrol (Anında düşmesi için süre kısaltıldı)
+            time.sleep(30) 
             if not self.alive: break
             try:
                 res = self.auth_api.check()
@@ -383,18 +399,24 @@ class MacroApp(ctk.CTk):
                 self.after(0, lambda: AnnouncementWindow(self, data["message"]))
         except: pass
 
+    # --- EKSİK OLAN BİLDİRİM FONKSİYONU GERİ EKLENDİ ---
+    def show_toast(self, title, message, type="success"):
+        """Ekranda sağ alt köşede şık bildirimler (toast) gösterir."""
+        if type == "error": color_key = "red_error"
+        elif type == "warning": color_key = "yellow_neon"
+        else: color_key = "cyan_neon" 
+        ToastNotification(self, title, message, color_key)
+
     def trigger_security_lockdown(self, reason):
-        """Güvenlik ihlali veya süre bitiminde sistemi anında kilitler ve atar."""
         self.engine.stop() 
         
-        # Süresi biten anahtarı sil ki program bir dahaki açılışta auto-login denemesin
         try:
             if os.path.exists(LICENSE_FILE):
                 os.remove(LICENSE_FILE)
         except: pass
 
         self.show_toast("GÜVENLİK UYARISI", reason, type="error") 
-        self.after(3000, self.on_closing) # 3 saniye mesajı gösterip uygulamayı kapatır
+        self.after(3000, self.on_closing) 
     
     def open_settings(self): SettingsWindow(self)
 

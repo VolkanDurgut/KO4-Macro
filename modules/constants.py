@@ -39,47 +39,47 @@ ICON_NAME = resource_path("icon.ico")
 # --- FONT AYARLARI (GÜVENLİ) ---
 FONT_FAMILY = ("Segoe UI", "Consolas", "Arial")
 
-# --- RENK PALETİ (HİBRİT) ---
+# --- RENK PALETİ (PREMIUM DARK GAMER TEMA) ---
 COLORS = {
-    # -- YENİ MODERN TASARIM (NEXUS) --
-    "bg_dark": "#0B0B0E",       # Ana Arka Plan
-    "bg_card": "#141417",       # Kart Rengi
-    "bg_input": "#1C1C21",      # Input Rengi
-    "accent": "#00F0FF",        # Neon Cyan (Ana Vurgu)
-    "accent_dim": "#006670",    # Sönük Vurgu
-    "border": "#222226",        # İnce Çerçeve Rengi
+    # -- YENİ MODERN TASARIM (OLED BLACK & NEON) --
+    "bg_dark": "#050507",       # Ultra Derin Siyah (Ana Arka Plan)
+    "bg_card": "#0A0A0F",       # Premium Kart Rengi (Çok koyu füme/siyah)
+    "bg_input": "#101015",      # Zifiri Input Rengi
+    "accent": "#00F0FF",        # Neon Cyan (Ana Vurgu - Lazer Mavi)
+    "accent_dim": "#005560",    # Sönük Vurgu
+    "border": "#15151A",        # Çok İnce ve Karanlık Çerçeve Rengi
     
     # -- GERİYE DÖNÜK UYUMLULUK --
-    "bg_main": "#0B0B0E",       
-    "bg_sidebar": "#0F0F12",
-    "bg_panel": "#141417",
+    "bg_main": "#050507",       
+    "bg_sidebar": "#07070A",    # Sidebar bir tık daha farklı siyah
+    "bg_panel": "#0A0A0F",
     
-    "text_main": "#E1E1E6",     
-    "text_dim": "#82828F", 
+    "text_main": "#F0F0F5",     # Parlak ve Keskin Beyaz
+    "text_dim": "#6E6E7A",      # Soluk Gri/Mavi (Daha az dikkat çeken metinler için)
     "text_dark": "#000000",
     
-    "border_main": "#222226",
-    "border_dim": "#27272A",
+    "border_main": "#15151A",
+    "border_dim": "#15151A",
     "border_focus": "#00F0FF",
     "border_highlight": "#00F0FF",
 
     "accent_primary": "#00F0FF",
-    "accent_hover": "#00B8C4",
+    "accent_hover": "#00D6E6",  # Hover durumunda biraz daha koyu Neon
     "accent_glow": "#00FFFF",
     
     "cyan_neon": "#00F0FF",
-    "green_neon": "#10B981",    # Aktif Yeşil
-    "yellow_neon": "#F59E0B",   
-    "pink_neon": "#D946EF",     
-    "red_error": "#FF4B4B",     # Hata Kırmızı
+    "green_neon": "#00FFA3",    # Hacker Yeşili
+    "yellow_neon": "#FFD300",   
+    "pink_neon": "#FF0055",     # Lazer Pembesi/Kırmızısı
+    "red_error": "#FF003C",     # Agresif Hata Kırmızısı
     
-    "btn_hover": "#2A2A30",
+    "btn_hover": "#14141A",
     "toggle_active": "#00F0FF",
-    "toggle_passive": "#27272A",
+    "toggle_passive": "#15151A",
     
-    "success": "#10B981",
-    "warning": "#F59E0B",
-    "danger": "#FF4B4B"
+    "success": "#00FFA3",
+    "warning": "#FFD300",
+    "danger": "#FF003C"
 }
 
 # --- VARSAYILAN AYARLAR (GÜNCEL) ---
